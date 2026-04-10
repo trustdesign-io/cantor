@@ -26,8 +26,6 @@ export function PriceChart({ candles }: PriceChartProps) {
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick', Time> | null>(null)
   const emaFastSeriesRef = useRef<ISeriesApi<'Line', Time> | null>(null)
   const emaSlowSeriesRef = useRef<ISeriesApi<'Line', Time> | null>(null)
-  const chartRef = useRef<ReturnType<typeof createChart> | null>(null)
-
   // Create the chart once on mount
   useEffect(() => {
     const container = containerRef.current
@@ -80,8 +78,6 @@ export function PriceChart({ candles }: PriceChartProps) {
       lastValueVisible: false,
     })
 
-    chartRef.current = chart
-
     // Resize observer keeps the chart filling its container on layout changes
     const ro = new ResizeObserver(entries => {
       for (const entry of entries) {
@@ -93,7 +89,6 @@ export function PriceChart({ candles }: PriceChartProps) {
     return () => {
       ro.disconnect()
       chart.remove()
-      chartRef.current = null
       candleSeriesRef.current = null
       emaFastSeriesRef.current = null
       emaSlowSeriesRef.current = null
@@ -138,7 +133,8 @@ export function PriceChart({ candles }: PriceChartProps) {
     <div
       ref={containerRef}
       className="w-full h-full"
-      aria-label="Price chart with EMA 9 and EMA 21 overlays"
+      role="img"
+      aria-label={`Price chart with EMA ${EMA_FAST_PERIOD} and EMA ${EMA_SLOW_PERIOD} overlays`}
     />
   )
 }
