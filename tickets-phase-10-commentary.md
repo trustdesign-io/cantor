@@ -148,6 +148,46 @@ Keep this strictly additive. `OLLAMA_MODEL` stays as the fallback constant — t
 
 This pairs naturally with the **Per-event severity** follow-up mentioned at the bottom of this doc: once you can swap models at will, comparing which model writes better commentary on the same event stream becomes the obvious next experiment.
 
+---
+
+### 10.7 Fix Kraken WS ohlc zod schema — `time` is a string, not a number
+
+- **Category:** Bug
+- **Priority:** Critical
+- **Size:** S
+- **Status:** Backlog
+
+## Overview
+The live loop has been silently frozen. The app renders a chart and EMAs, but the candle buffer only contains REST backfill — no WS tick updates the buffer, the strategy runs once on mount and then sits silent for hours. No signals, no commentary, no log entries.
+
+Root cause: `src/hooks/useKrakenOhlc.ts` declares position 0 of the Kraken v1 WS `ohlc` payload as `z.number()`, but Kraken sends `time` (and `etime`) as microsecond-precise *strings* like `"1775846735.297534"`. Every `safeParse` returns `{ success: false }`, the handler returns early, and the buffer never advances past the REST backfill. The chart keeps rendering the stale backfill, so the freeze is invisible until you notice no new candles are appearing.
+
+## Diagnostic evidence
+Verified by opening a real connection to `wss://ws.kraken.com/` and subscribing to `ohlc-1` on `XBT/USDT`. Captured payload:
+```
+[4302176265, ["1775846735.297534","1775846760.000000","72968.30000","72970.10000","72968.30000","72970.00000","72969.85000","0.00412000",3], "ohlc-1", "XBT/USDT"]
+```
+`payload[0]` is the string `"1775846735.297534"` — `typeof === "string"`. The current schema rejects it.
+
+## Acceptance Criteria
+- [ ] In `src/hooks/useKrakenOhlc.ts`, change `KrakenOhlcPayload` position 0 from `z.number()` to `z.string()` (position 1 is also a string — verify it's already `z.string()`)
+- [ ] Parse `time` with `parseFloat(timeStr)` when constructing the `Candle`. Kraken's invariant is that `time` is stable across updates *within* the same bucket, so no further normalization is needed
+- [ ] Add an inline comment above the schema explaining why position 0 is a string (it's non-obvious and will trip up the next reader): "Kraken WS v1 sends `time` and `etime` as microsecond-precise strings (e.g. `\"1775846735.297534\"`), not numbers. Declaring position 0 as `z.number()` causes `safeParse` to reject every real message and silently freezes the live loop."
+- [ ] Update the test fixture helper `ohlcMessage` in `tests/hooks/useKrakenOhlc.test.ts` to emit stringified times. Add an optional `timeOffsetMicros?: string` parameter so tests can exercise the real wire format (e.g. `"1700000040.297534"`)
+- [ ] Shift any test anchor timestamps that aren't on minute boundaries to real minute boundaries (e.g. `1_700_000_000` → `1_700_000_040`, successor `1_700_000_060` → `1_700_000_100`) so they match the intervals Kraken actually emits
+- [ ] Add a regression test "accepts microsecond-precise string timestamps from Kraken WS" that simulates two consecutive messages with `timeOffsetMicros: '297534'` on the same minute bucket and asserts the buffer has exactly one candle with `close` updated to the second message's value
+- [ ] All existing `useKrakenOhlc` tests pass locally (`npm run test tests/hooks/useKrakenOhlc.test.ts`)
+- [ ] `npx tsc --noEmit` clean
+- [ ] Manual verification: reload the app, leave it for 2–3 minutes, confirm new candles are appended to the buffer (chart advances, signal log eventually fires an EMA evaluation entry, commentator panel produces at least one event on any non-HOLD transition)
+- [ ] Commit: `fix: accept string time in Kraken WS ohlc zod schema`
+
+## Notes
+This is a P0. Without this fix the entire live trading loop is dead — the app looks alive but is running the strategy against a frozen buffer from REST backfill.
+
+This ticket depends on ticket 10.5 (configurable OHLC interval) having landed first, because the hook signature is `useKrakenOhlc(pair, interval)` in the updated form. If 10.5 is still in progress, rebase this on top of it before merging — do not split the schema fix from the interval change, they share the same file.
+
+The same bug class may exist in other WS payload parsers if they were written against outdated Kraken docs. After the fix lands, grep the repo for `z.number()` near any `kraken` or `ws` reference and audit.
+
 <!-- END BATCH -->
 
 ## After this batch
