@@ -68,7 +68,14 @@ export function useKrakenOhlc(pair: Pair): OhlcState {
         }
 
         // Guard against non-finite values from malformed strings
-        if (!isFinite(candle.open) || !isFinite(candle.close)) return
+        if (
+          !isFinite(candle.open) ||
+          !isFinite(candle.high) ||
+          !isFinite(candle.low) ||
+          !isFinite(candle.close) ||
+          !isFinite(candle.volume)
+        )
+          return
 
         setOhlcState((s) => {
           const { candles } = s

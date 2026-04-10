@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
+import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
 import { krakenWsManager } from '@/lib/krakenWsManager'
 import type { Pair } from '@/types'
 
@@ -289,5 +290,56 @@ describe('useKrakenOhlc', () => {
     const instanceAfterUnmount = MockWebSocket.lastInstance
     act(() => { vi.advanceTimersByTime(5_000) })
     expect(MockWebSocket.lastInstance).toBe(instanceAfterUnmount)
+  })
+})
+
+// ── Shared connection integration ─────────────────────────────────────────────
+
+describe('useKrakenOhlc + useKrakenWebSocket shared connection', () => {
+  it('joins an already-open socket without creating a new WebSocket', () => {
+    // Ticker hook opens the connection
+    const { result: tickerResult } = renderHook(() => useKrakenWebSocket('XBT/USDT'))
+    act(() => { MockWebSocket.lastInstance!.simulateOpen() })
+    expect(tickerResult.current.connected).toBe(true)
+
+    const socketAfterTicker = MockWebSocket.lastInstance
+
+    // OHLC hook mounts while socket is OPEN — should reuse the same socket
+    const { result: ohlcResult } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+
+    expect(MockWebSocket.lastInstance).toBe(socketAfterTicker)
+    expect(ohlcResult.current.connected).toBe(true)
+
+    // An ohlc subscribe message should have been sent immediately
+    const messages = socketAfterTicker!.sentMessages.map(
+      (m) => JSON.parse(m) as { subscription: { name: string } }
+    )
+    expect(messages.some((m) => m.subscription.name === 'ohlc')).toBe(true)
+  })
+
+  it('notifies both hooks when the shared socket opens mid-CONNECTING', () => {
+    // Both hooks mount before the socket opens
+    const { result: tickerResult } = renderHook(() => useKrakenWebSocket('XBT/USDT'))
+    const socketWhileConnecting = MockWebSocket.lastInstance
+
+    const { result: ohlcResult } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+
+    // No new socket should have been created (socket was CONNECTING)
+    expect(MockWebSocket.lastInstance).toBe(socketWhileConnecting)
+    expect(tickerResult.current.connected).toBe(false)
+    expect(ohlcResult.current.connected).toBe(false)
+
+    // Socket opens — both hooks receive connected: true
+    act(() => { MockWebSocket.lastInstance!.simulateOpen() })
+
+    expect(tickerResult.current.connected).toBe(true)
+    expect(ohlcResult.current.connected).toBe(true)
+
+    // Both subscriptions sent in onopen
+    const messages = MockWebSocket.lastInstance!.sentMessages.map(
+      (m) => JSON.parse(m) as { subscription: { name: string } }
+    )
+    expect(messages.some((m) => m.subscription.name === 'ticker')).toBe(true)
+    expect(messages.some((m) => m.subscription.name === 'ohlc')).toBe(true)
   })
 })
