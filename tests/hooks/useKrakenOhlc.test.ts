@@ -1,9 +1,20 @@
-import { renderHook, act } from '@testing-library/react'
+import { renderHook, act, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
 import { krakenWsManager } from '@/lib/krakenWsManager'
-import type { Pair } from '@/types'
+import type { Candle, Pair } from '@/types'
+
+// ── Mock REST backfill ────────────────────────────────────────────────────────
+// The hook now calls fetchOHLC() on mount to backfill history before the WS
+// takes over. Default the mock to an empty array so existing WS-focused tests
+// keep their invariants (candles start empty, grow from WS messages only).
+// Tests that exercise the backfill path override this mock explicitly.
+vi.mock('@/api/krakenRest', () => ({
+  fetchOHLC: vi.fn(async () => [] as Candle[]),
+}))
+import { fetchOHLC } from '@/api/krakenRest'
+const mockedFetchOHLC = vi.mocked(fetchOHLC)
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────
 
@@ -89,6 +100,8 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', MockWebSocket)
   MockWebSocket.lastInstance = null
   krakenWsManager._reset()
+  mockedFetchOHLC.mockReset()
+  mockedFetchOHLC.mockResolvedValue([])
 })
 
 afterEach(() => {
@@ -290,6 +303,127 @@ describe('useKrakenOhlc', () => {
     const instanceAfterUnmount = MockWebSocket.lastInstance
     act(() => { vi.advanceTimersByTime(5_000) })
     expect(MockWebSocket.lastInstance).toBe(instanceAfterUnmount)
+  })
+})
+
+// ── REST backfill ─────────────────────────────────────────────────────────────
+
+describe('useKrakenOhlc REST backfill', () => {
+  /** Build a minimal Candle at the given unix-seconds time. */
+  function candle(time: number, close = 45000): Candle {
+    return { time, open: close, high: close, low: close, close, volume: 1 }
+  }
+
+  it('calls fetchOHLC with the current pair and 1-minute interval on mount', () => {
+    renderHook(() => useKrakenOhlc('XBT/USDT'))
+    expect(mockedFetchOHLC).toHaveBeenCalledTimes(1)
+    expect(mockedFetchOHLC).toHaveBeenCalledWith('XBT/USDT', 1)
+  })
+
+  it('refetches backfill when the pair changes', () => {
+    const { rerender } = renderHook(
+      ({ pair }: { pair: Pair }) => useKrakenOhlc(pair),
+      { initialProps: { pair: 'XBT/USDT' as Pair } }
+    )
+    expect(mockedFetchOHLC).toHaveBeenLastCalledWith('XBT/USDT', 1)
+
+    rerender({ pair: 'ETH/USDT' })
+    expect(mockedFetchOHLC).toHaveBeenLastCalledWith('ETH/USDT', 1)
+    expect(mockedFetchOHLC).toHaveBeenCalledTimes(2)
+  })
+
+  it('populates candles with backfill when the WS has not yet pushed any data', async () => {
+    const history = [
+      candle(1_700_000_000, 44000),
+      candle(1_700_000_060, 44500),
+      candle(1_700_000_120, 45000),
+    ]
+    mockedFetchOHLC.mockResolvedValueOnce(history)
+
+    vi.useRealTimers() // waitFor needs real timers to flush the fetch promise
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+
+    await waitFor(() => {
+      expect(result.current.candles).toHaveLength(3)
+    })
+    expect(result.current.candles.map((c) => c.close)).toEqual([44000, 44500, 45000])
+  })
+
+  it('trims backfill to the most recent MAX_CANDLES (500)', async () => {
+    const history = Array.from({ length: 600 }, (_, i) =>
+      candle(1_700_000_000 + i * 60, 44000 + i)
+    )
+    mockedFetchOHLC.mockResolvedValueOnce(history)
+
+    vi.useRealTimers()
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+
+    await waitFor(() => {
+      expect(result.current.candles).toHaveLength(500)
+    })
+    // Oldest retained should be candle #100 (600 - 500)
+    expect(result.current.candles[0].time).toBe(1_700_000_000 + 100 * 60)
+    expect(result.current.candles[499].time).toBe(1_700_000_000 + 599 * 60)
+  })
+
+  it('merges backfill under existing WS candles without clobbering live data', async () => {
+    // Delay the REST resolution so the WS message lands first
+    let resolveFetch: (c: Candle[]) => void = () => {}
+    mockedFetchOHLC.mockImplementationOnce(
+      () => new Promise<Candle[]>((res) => { resolveFetch = res })
+    )
+
+    vi.useRealTimers()
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+
+    // WS pushes a live candle before the REST backfill resolves
+    act(() => {
+      MockWebSocket.lastInstance!.simulateOpen()
+      MockWebSocket.lastInstance!.simulateMessage(
+        ohlcMessage('XBT/USDT', 1_700_000_120, { close: '45000.00' })
+      )
+    })
+    expect(result.current.candles).toHaveLength(1)
+    expect(result.current.candles[0].time).toBe(1_700_000_120)
+
+    // Now the REST backfill resolves — it overlaps with the live candle
+    // (time 1_700_000_120) and includes two older candles. Only the older
+    // ones should be prepended; the live candle must be preserved.
+    const history = [
+      candle(1_700_000_000, 44000),
+      candle(1_700_000_060, 44500),
+      candle(1_700_000_120, 99999), // would clobber if merge logic is wrong
+    ]
+    await act(async () => {
+      resolveFetch(history)
+      await Promise.resolve()
+    })
+
+    await waitFor(() => {
+      expect(result.current.candles).toHaveLength(3)
+    })
+    expect(result.current.candles.map((c) => c.time)).toEqual([
+      1_700_000_000,
+      1_700_000_060,
+      1_700_000_120,
+    ])
+    // Live candle preserved, NOT overwritten by the stale REST row
+    expect(result.current.candles[2].close).toBe(45000)
+  })
+
+  it('swallows a fetchOHLC rejection and does not break the hook', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockedFetchOHLC.mockRejectedValueOnce(new Error('kraken down'))
+
+    vi.useRealTimers()
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalled()
+    })
+    // Candles stay empty; hook is still usable (WS can still populate)
+    expect(result.current.candles).toEqual([])
+    consoleErrorSpy.mockRestore()
   })
 })
 
