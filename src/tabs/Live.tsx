@@ -2,47 +2,66 @@ import { useState, useEffect, useRef } from 'react'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
-import type { Candle, Pair, Position, Signal, SignalEvent } from '@/types'
+import type { Candle, Pair, Position, Signal, SignalEvent, SignalResult } from '@/types'
 
 interface LiveTabProps {
   pair: Pair
   candles: readonly Candle[]
   signal: Signal
+  signalResult: SignalResult
   position: Position | null
   balance: number
 }
 
-export function LiveTab({ pair, candles, signal, position, balance }: LiveTabProps) {
+export function LiveTab({ pair, candles, signal, signalResult, position, balance }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
   const [events, setEvents] = useState<SignalEvent[]>([])
   const lastSignalRef = useRef<Signal>('HOLD')
+  const lastVetoRef = useRef<string | undefined>(undefined)
+
   // `candles` is intentionally omitted from deps: we only need to fire when
-  // `signal` changes (which itself only changes in response to new candles).
-  // Including `candles` would add a spurious run on every tick.
+  // `signal` or `signalResult` changes (which itself only changes in response to new candles).
   useEffect(() => {
+    const last = candles[candles.length - 1]
+    if (!last) return
+
     if (signal !== 'HOLD' && signal !== lastSignalRef.current) {
-      const last = candles[candles.length - 1]
-      if (!last) return
+      setEvents(prev => [
+        ...prev,
+        { timestamp: Date.now(), pair, signal, price: last.close },
+      ])
+      lastVetoRef.current = undefined
+    } else if (
+      signal === 'HOLD' &&
+      signalResult.baseSignal !== 'HOLD' &&
+      signalResult.reason !== undefined &&
+      signalResult.reason !== lastVetoRef.current
+    ) {
+      // A filter vetoed a non-HOLD base signal — log it as a suppressed entry
       setEvents(prev => [
         ...prev,
         {
           timestamp: Date.now(),
           pair,
-          signal,
+          signal: 'HOLD',
           price: last.close,
+          vetoReason: signalResult.reason,
         },
       ])
+      lastVetoRef.current = signalResult.reason
     }
+
     lastSignalRef.current = signal
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signal, pair])
+  }, [signal, signalResult, pair])
 
   // Reset accumulated events and signal gate when pair changes
   useEffect(() => {
     setEvents([])
     lastSignalRef.current = 'HOLD'
+    lastVetoRef.current = undefined
   }, [pair])
 
   return (

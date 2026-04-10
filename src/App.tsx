@@ -43,7 +43,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
   // Hoisted so trades persist when switching away from the Live tab
   const { candles } = useKrakenOhlc(pair)
-  const { signal, position, balance, trades } = useLiveStrategy(pair, candles)
+  const { signal, signalResult, position, balance, trades } = useLiveStrategy(pair, candles)
 
   return (
     <div
@@ -60,7 +60,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
       <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
         {activeTab === 'live' && (
-          <LiveTab pair={pair} candles={candles} signal={signal} position={position} balance={balance} />
+          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} />
         )}
         {activeTab === 'backtest' && <BacktestTab pair={pair} />}
         {activeTab === 'journal' && <JournalTab trades={trades} />}

@@ -91,3 +91,33 @@ The moment when a faster-moving average crosses above or below a slower-moving a
 **Why it matters:** Crossovers are one of the most widely used signals in technical analysis because they are objective and easy to automate.
 
 **In Cantor:** A golden cross (EMA 9 crosses above EMA 21) is a BUY signal. A death cross (EMA 9 crosses below EMA 21) is a SELL signal. Both are subject to the RSI filter (30–70 range) before being acted on.
+
+---
+
+## Base signal
+
+The raw BUY, SELL, or HOLD emitted by the core EMA crossover + RSI strategy, before any supplementary filters are applied.
+
+**Why it matters:** Separating the base signal from the final signal makes it possible to log *why* a trade was suppressed (e.g. "BUY was ready but funding was extreme"), which helps you evaluate whether each filter is actually adding value.
+
+**In Cantor:** `detectSignal` returns both `baseSignal` and `signal`. The Signal Log shows the base signal classification alongside any veto reason so you can see what the strategy *wanted* to do.
+
+---
+
+## Filter
+
+A pure, synchronous function that can veto a base signal by returning `{ ok: false, reason }`. Filters run in order; the first veto wins.
+
+**Why it matters:** The EMA crossover strategy fires on price action alone. Supplementary filters add awareness of external conditions — extreme funding rates, macro event windows, sentiment extremes — that historically degrade signal quality.
+
+**In Cantor:** Filters live in `src/strategy/filters/` and are registered in `DEFAULT_FILTERS` in `src/strategy/signals.ts`. Each filter receives the full candle history and a `FilterContext` object containing pre-fetched async data (funding rate, fear & greed index, etc.). Filters must not make network calls.
+
+---
+
+## Veto
+
+The act of a filter downgrading a non-HOLD base signal to HOLD. When a veto occurs, the signal engine records which filter fired and the human-readable reason.
+
+**Why it matters:** Without explicit veto logging, a suppressed trade is invisible — you can't distinguish "strategy said HOLD" from "strategy said BUY but a filter blocked it". Cantor surfaces both in the Signal Log.
+
+**In Cantor:** A vetoed event appears in the Signal Log with muted styling and a "vetoed: <reason>" note. The filter contribution report (Phase 9) uses veto data to measure each filter's impact on backtested performance.

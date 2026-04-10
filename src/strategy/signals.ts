@@ -1,4 +1,4 @@
-import type { Signal } from '@/types'
+import type { Candle, FilterContext, FilterFn, Signal, SignalResult } from '@/types'
 
 /** EMA fast period — reacts quickly to price changes, captures short-term momentum */
 export const EMA_FAST_PERIOD = 9
@@ -74,4 +74,57 @@ export function computeSignal(
   }
 
   return 'HOLD'
+}
+
+/**
+ * Ordered array of filter functions applied to every non-HOLD base signal.
+ * Each filter is a pure synchronous function — no network calls.
+ * Wired into the live strategy and backtest via detectSignal().
+ *
+ * Starts empty (Phase 7.1). Populated by individual filter tickets (8.1+).
+ */
+export const DEFAULT_FILTERS: readonly FilterFn[] = []
+
+/**
+ * Compute the trading signal and run it through an ordered filter pipeline.
+ *
+ * Filters are only evaluated for BUY or SELL base signals — HOLD passes
+ * through immediately. The first filter returning `{ ok: false }` wins:
+ * the signal is downgraded to HOLD and the reason is recorded.
+ *
+ * @param emaFast  - Pre-computed fast EMA array (index-aligned with candles)
+ * @param emaSlow  - Pre-computed slow EMA array
+ * @param rsiValues - Pre-computed RSI array
+ * @param candles  - Full candle series passed to filters for context
+ * @param context  - Pre-fetched async data (funding rate, fear & greed, etc.)
+ * @param filters  - Ordered filter pipeline (defaults to DEFAULT_FILTERS)
+ */
+export function detectSignal(
+  emaFast: readonly number[],
+  emaSlow: readonly number[],
+  rsiValues: readonly number[],
+  candles: readonly Candle[] = [],
+  context: FilterContext = {},
+  filters: readonly FilterFn[] = DEFAULT_FILTERS
+): SignalResult {
+  const baseSignal = computeSignal(emaFast, emaSlow, rsiValues)
+
+  // HOLD always passes through — filters only guard actionable signals
+  if (baseSignal === 'HOLD' || filters.length === 0) {
+    return { signal: baseSignal, baseSignal }
+  }
+
+  for (const filter of filters) {
+    const result = filter(candles, context)
+    if (!result.ok) {
+      return {
+        signal: 'HOLD',
+        baseSignal,
+        vetoedBy: filter.name || 'unknown',
+        reason: result.reason,
+      }
+    }
+  }
+
+  return { signal: baseSignal, baseSignal }
 }
