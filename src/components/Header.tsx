@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { TeachMeButton } from '@/components/TeachMeButton'
 import type { FearGreedData } from '@/data/fearGreed'
 import type { Pair } from '@/types'
 
@@ -98,6 +99,7 @@ export function Header({ pair, onPairChange, price, change24h, fundingRate, fear
               {formatFunding(fundingRate)}
             </span>
             <span style={{ color: 'var(--text-secondary)' }}>/8h</span>
+            <TeachMeButton topicId="funding-rate" currentValue={`${formatFunding(fundingRate)} per 8 hours`} />
           </div>
         )}
 
@@ -115,6 +117,7 @@ export function Header({ pair, onPairChange, price, change24h, fundingRate, fear
             >
               {fearGreed.value}
             </span>
+            <TeachMeButton topicId="fear-greed" currentValue={`${fearGreed.value} (${fearGreed.classification})`} />
           </div>
         )}
 

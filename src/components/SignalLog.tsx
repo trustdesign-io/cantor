@@ -1,3 +1,4 @@
+import { TeachMeButton } from '@/components/TeachMeButton'
 import type { Position, SignalEvent } from '@/types'
 
 interface SignalLogProps {
@@ -85,11 +86,12 @@ export function SignalLog({ events, position, balance }: SignalLogProps) {
                       {label}
                       {isVetoed && (
                         <div
-                          className="text-xs font-normal mt-0.5"
+                          className="flex items-center gap-1 text-xs font-normal mt-0.5"
                           style={{ color: 'var(--text-secondary)' }}
                           title={event.vetoReason}
                         >
-                          vetoed: {event.vetoReason}
+                          <span>vetoed: {event.vetoReason}</span>
+                          <TeachMeButton topicId="filter-veto" currentValue={`${event.vetoReason} suppressed a ${event.signal === 'HOLD' ? 'non-HOLD' : event.signal} signal`} />
                         </div>
                       )}
                     </td>

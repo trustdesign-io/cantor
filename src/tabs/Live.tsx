@@ -5,6 +5,7 @@ import { SignalLog } from '@/components/SignalLog'
 import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
 import { StablecoinPanel } from '@/components/StablecoinPanel'
 import { CommentatorPanel } from '@/components/CommentatorPanel'
+import { TeachMeButton } from '@/components/TeachMeButton'
 import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
 import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
@@ -130,12 +131,65 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
         {/* Charts — left 2/3, stacked vertically */}
         <div className="flex flex-col" style={{ flex: '2 1 0', minWidth: 0 }}>
           {/* Price + EMA chart — 75% of chart column height */}
-          <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
+          <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)', position: 'relative' }}>
             <PriceChart candles={candles} />
+            {/* EMA legend overlay with teach-me buttons */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                display: 'flex',
+                gap: 12,
+                zIndex: 2,
+                pointerEvents: 'none',
+              }}
+            >
+              <span
+                className="flex items-center gap-1 text-xs"
+                style={{ color: '#22d3ee', pointerEvents: 'auto' }}
+              >
+                EMA {EMA_FAST_PERIOD}
+                <TeachMeButton
+                  topicId="ema-fast"
+                  currentValue={isNaN(snapshot.emaFast) ? 'not yet calculated' : snapshot.emaFast.toFixed(2)}
+                />
+              </span>
+              <span
+                className="flex items-center gap-1 text-xs"
+                style={{ color: '#f59e0b', pointerEvents: 'auto' }}
+              >
+                EMA {EMA_SLOW_PERIOD}
+                <TeachMeButton
+                  topicId="ema-slow"
+                  currentValue={isNaN(snapshot.emaSlow) ? 'not yet calculated' : snapshot.emaSlow.toFixed(2)}
+                />
+              </span>
+            </div>
           </div>
           {/* RSI panel — 25% of chart column height */}
-          <div style={{ flex: '1 1 0', minHeight: 0 }}>
+          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
             <RsiChart candles={candles} />
+            {/* RSI label overlay with teach-me button */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 4,
+                left: 8,
+                zIndex: 2,
+              }}
+            >
+              <span
+                className="flex items-center gap-1 text-xs"
+                style={{ color: '#a78bfa' }}
+              >
+                RSI {RSI_PERIOD}
+                <TeachMeButton
+                  topicId="rsi"
+                  currentValue={isNaN(snapshot.rsi) ? 'not yet calculated' : snapshot.rsi.toFixed(1)}
+                />
+              </span>
+            </div>
           </div>
         </div>
 
