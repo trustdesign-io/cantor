@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useReducer } from 'react'
 import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
 import { computeSignal, EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
@@ -13,53 +13,52 @@ export interface LiveStrategyState {
   trades: PaperTraderState['trades']
 }
 
+type TraderAction =
+  | { type: 'signal'; signal: Exclude<Signal, 'HOLD'>; price: number; time: number; pair: Pair }
+  | { type: 'reset' }
+
+function traderReducer(state: PaperTraderState, action: TraderAction): PaperTraderState {
+  if (action.type === 'reset') return INITIAL_STATE
+  return onSignal(state, action.signal, action.price, action.time, action.pair)
+}
+
 /**
  * Wires OHLC candles through indicators → signal → paper trader.
  *
- * On each new candle array (or pair change):
- *   1. Requires at least EMA_SLOW_PERIOD + 1 candles (22) to compute a crossover
- *   2. Computes EMA-9, EMA-21, RSI-14 over close prices
- *   3. Derives a signal from the latest two bars
- *   4. Feeds the signal into the paper trader state machine
+ * Signal is derived state computed via useMemo (no effect needed).
+ * Trader state is accumulated via useReducer, updated via effect dispatch.
  *
  * Pair changes reset all state to the initial values.
  */
 export function useLiveStrategy(pair: Pair, candles: readonly Candle[]): LiveStrategyState {
   const [currentPair, setCurrentPair] = useState(pair)
-  const [signal, setSignal] = useState<Signal>('HOLD')
-  const [traderState, setTraderState] = useState<PaperTraderState>(INITIAL_STATE)
+  const [traderState, dispatch] = useReducer(traderReducer, INITIAL_STATE)
 
   // Render-time pair reset — React batches these with the render
   if (pair !== currentPair) {
     setCurrentPair(pair)
-    setSignal('HOLD')
-    setTraderState(INITIAL_STATE)
+    dispatch({ type: 'reset' })
   }
 
-  useEffect(() => {
-    // Need at least slow period + 1 bars to detect a crossover (prev + curr).
-    // Reset signal to HOLD when the candle buffer shrinks below the minimum
-    // (e.g. on reconnect without a pair change) to prevent a stale BUY/SELL
-    // from persisting when indicators can no longer be computed.
-    if (candles.length < EMA_SLOW_PERIOD + 1) {
-      setSignal('HOLD')
-      return
-    }
-
+  // Signal is pure derived state — no effect or setState needed
+  const signal = useMemo<Signal>(() => {
+    if (candles.length < EMA_SLOW_PERIOD + 1) return 'HOLD'
     const closes = candles.map(c => c.close)
+    return computeSignal(
+      ema(closes, EMA_FAST_PERIOD),
+      ema(closes, EMA_SLOW_PERIOD),
+      rsi(closes, RSI_PERIOD),
+    )
+  }, [candles])
 
-    const emaFast = ema(closes, EMA_FAST_PERIOD)
-    const emaSlow = ema(closes, EMA_SLOW_PERIOD)
-    const rsiValues = rsi(closes, RSI_PERIOD)
-
-    const newSignal = computeSignal(emaFast, emaSlow, rsiValues)
-    setSignal(newSignal)
-
-    if (newSignal !== 'HOLD') {
-      const last = candles[candles.length - 1]
-      setTraderState(prev => onSignal(prev, newSignal, last.close, last.time * 1000, pair))
-    }
-  }, [candles, pair])
+  // Advance the paper trader when an actionable signal arrives.
+  // dispatch is stable and does not trigger the set-state-in-effect rule.
+  useEffect(() => {
+    if (signal === 'HOLD') return
+    const last = candles[candles.length - 1]
+    if (!last) return
+    dispatch({ type: 'signal', signal, price: last.close, time: last.time * 1000, pair })
+  }, [signal, pair, candles])
 
   return {
     signal,
