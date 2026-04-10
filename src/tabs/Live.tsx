@@ -84,8 +84,11 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
   }, [pair])
 
   // Build a stable DashboardSnapshot for the commentator on each candle update.
-  // Indicator values are computed from the candle closes — same computation as
-  // useLiveStrategy, kept here to avoid exposing internals from that hook.
+  // Indicator values are computed from the candle closes using the same functions
+  // and periods as useLiveStrategy. This is intentional duplication — useLiveStrategy
+  // does not expose its intermediate indicator arrays publicly, and adding a new
+  // return value would change its API surface. If the indicator logic or period
+  // constants change in useLiveStrategy, this snapshot must be updated to match.
   const snapshot = useMemo<DashboardSnapshot>(() => {
     const closes = candles.map(c => c.close)
     const emaFastArr = ema(closes, EMA_FAST_PERIOD)

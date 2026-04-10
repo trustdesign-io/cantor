@@ -10,6 +10,7 @@ vi.mock('@/hooks/useCommentator', () => ({
 }))
 
 import { useCommentator } from '@/hooks/useCommentator'
+import type { CommentaryEntry } from '@/types/commentary'
 const mockedUseCommentator = vi.mocked(useCommentator)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ function makeSnapshot(overrides: Partial<DashboardSnapshot> = {}): DashboardSnap
   }
 }
 
-function makeEntry(overrides: Partial<Parameters<typeof mockedUseCommentator>[0]> = {}) {
+function makeEntry(overrides: Partial<CommentaryEntry> = {}): CommentaryEntry {
   return {
     id: 'test-1',
     timestamp: new Date('2024-01-01T12:00:00').getTime(),
@@ -88,7 +89,7 @@ describe('CommentatorPanel', () => {
 
   it('renders a streaming entry with visible text (cursor is aria-hidden)', () => {
     mockedUseCommentator.mockReturnValueOnce({
-      entries: [makeEntry({ text: 'Streaming...', streaming: true } as never)],
+      entries: [makeEntry({ text: 'Streaming...', streaming: true })],
       clearEntries: vi.fn(),
       model: 'llama3.2:3b',
     })
@@ -100,7 +101,7 @@ describe('CommentatorPanel', () => {
 
   it('shows the error placeholder with a warning icon', () => {
     mockedUseCommentator.mockReturnValueOnce({
-      entries: [makeEntry({ text: 'Commentary unavailable — is Ollama running on localhost:11434?', label: 'Error', streaming: false } as never)],
+      entries: [makeEntry({ text: 'Commentary unavailable — is Ollama running on localhost:11434?', label: 'Error', streaming: false })],
       clearEntries: vi.fn(),
       model: 'llama3.2:3b',
     })

@@ -69,7 +69,7 @@ export async function streamChat({
   let doneCalled = false
 
   const callOnDone = () => {
-    if (!doneCalled && fullText) {
+    if (!doneCalled) {
       doneCalled = true
       onDone(fullText)
     }
