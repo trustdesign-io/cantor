@@ -1,11 +1,14 @@
 import { cn } from '@/lib/utils'
 import { TeachMeButton } from '@/components/TeachMeButton'
 import type { FearGreedData } from '@/data/fearGreed'
-import type { Pair } from '@/types'
+import type { OhlcInterval, Pair } from '@/types'
 
 interface HeaderProps {
   pair: Pair
   onPairChange: (pair: Pair) => void
+  /** Active OHLC interval in minutes */
+  interval: OhlcInterval
+  onIntervalChange: (interval: OhlcInterval) => void
   /** Live price — null while connecting */
   price: number | null
   /** 24-hour change percent — null while connecting */
@@ -17,6 +20,14 @@ interface HeaderProps {
 }
 
 const PAIRS: Pair[] = ['XBT/USDT', 'ETH/USDT']
+
+const INTERVALS: { value: OhlcInterval; label: string }[] = [
+  { value: 1,   label: '1m' },
+  { value: 5,   label: '5m' },
+  { value: 15,  label: '15m' },
+  { value: 60,  label: '1h' },
+  { value: 240, label: '4h' },
+]
 
 /** Format funding rate as a signed percentage string (e.g. "+0.0100%") */
 function formatFunding(rate: number): string {
@@ -42,7 +53,7 @@ function fearGreedColor(value: number): string {
   return 'var(--text-secondary)'                // neutral
 }
 
-export function Header({ pair, onPairChange, price, change24h, fundingRate, fearGreed }: HeaderProps) {
+export function Header({ pair, onPairChange, interval, onIntervalChange, price, change24h, fundingRate, fearGreed }: HeaderProps) {
   const changePositive = change24h !== null && change24h >= 0
 
   return (
@@ -77,6 +88,27 @@ export function Header({ pair, onPairChange, price, change24h, fundingRate, fear
               }}
             >
               {p}
+            </button>
+          ))}
+        </div>
+
+        {/* Interval picker */}
+        <div className="flex items-center gap-1 rounded" style={{ backgroundColor: 'var(--bg-elevated)' }}>
+          {INTERVALS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => onIntervalChange(opt.value)}
+              aria-label={`${opt.label} interval`}
+              className={cn(
+                'mono px-3 py-1 text-xs rounded transition-colors',
+                opt.value === interval ? 'font-medium' : 'hover:opacity-80'
+              )}
+              style={{
+                backgroundColor: opt.value === interval ? 'var(--accent)' : 'transparent',
+                color: opt.value === interval ? 'var(--bg-base)' : 'var(--text-secondary)',
+              }}
+            >
+              {opt.label}
             </button>
           ))}
         </div>

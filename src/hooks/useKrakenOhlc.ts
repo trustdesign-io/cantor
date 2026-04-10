@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react'
 import { z } from 'zod'
 import { krakenWsManager } from '@/lib/krakenWsManager'
 import { fetchOHLC } from '@/api/krakenRest'
-import type { Candle, Pair } from '@/types'
+import type { Candle, OhlcInterval, Pair } from '@/types'
 
-/** Interval (in minutes) used by both the REST backfill and the WS subscription */
-const OHLC_INTERVAL_MINUTES = 1
-
-// Kraken v1 OHLC array: [time, etime, open, high, low, close, vwap, volume, count]
+// Kraken WS v1 sends time as a microsecond-precise string (e.g. "1775846735.297534").
+// Declaring position 0 as z.number() causes safeParse to reject every real message.
+// Use z.string() and parseFloat() when building the Candle.
 const KrakenOhlcPayload = z.tuple([
-  z.number(), // 0: open time (unix seconds)
-  z.string(), // 1: end time
+  z.string(), // 0: begin time of interval, seconds since epoch (string)
+  z.string(), // 1: end time of interval
   z.string(), // 2: open
   z.string(), // 3: high
   z.string(), // 4: low
@@ -33,24 +32,26 @@ export interface OhlcState {
 const DISCONNECTED: OhlcState = { candles: [], connected: false }
 
 /**
- * Subscribes to the Kraken ohlc channel (1-minute interval) for `pair` via
- * the shared WebSocket manager. Returns a rolling bounded buffer of Candle[].
+ * Subscribes to the Kraken ohlc channel for `pair` at the given `interval`
+ * via the shared WebSocket manager. Returns a rolling bounded buffer of Candle[].
  *
  * - Current (incomplete) candle is updated in place on each tick.
  * - Completed candles are appended; buffer is capped at MAX_CANDLES.
- * - Resets cleanly when `pair` changes.
+ * - Resets cleanly when `pair` or `interval` changes.
  */
-export function useKrakenOhlc(pair: Pair): OhlcState {
-  // Render-time reset when pair changes (same pattern as useKrakenWebSocket)
+export function useKrakenOhlc(pair: Pair, interval: OhlcInterval): OhlcState {
+  // Render-time reset when pair or interval changes (same pattern as useKrakenWebSocket)
   const [trackedPair, setTrackedPair] = useState<Pair>(pair)
+  const [trackedInterval, setTrackedInterval] = useState<OhlcInterval>(interval)
   const [ohlcState, setOhlcState] = useState<OhlcState>(DISCONNECTED)
 
-  if (pair !== trackedPair) {
+  if (pair !== trackedPair || interval !== trackedInterval) {
     setTrackedPair(pair)
+    setTrackedInterval(interval)
     setOhlcState(DISCONNECTED)
   }
 
-  // REST backfill: populate history on mount / pair change so the chart has
+  // REST backfill: populate history on mount / pair / interval change so the chart has
   // something to render before the WebSocket starts pushing live updates.
   // The WS ohlc channel only emits the *current* candle — without this, the
   // chart would stay empty for however long it takes for full candles to
@@ -58,7 +59,7 @@ export function useKrakenOhlc(pair: Pair): OhlcState {
   useEffect(() => {
     let cancelled = false
 
-    fetchOHLC(pair, OHLC_INTERVAL_MINUTES)
+    fetchOHLC(pair, interval)
       .then((history) => {
         if (cancelled) return
         // Keep only the most recent MAX_CANDLES to match the rolling buffer cap
@@ -85,12 +86,13 @@ export function useKrakenOhlc(pair: Pair): OhlcState {
     return () => {
       cancelled = true
     }
-  }, [pair])
+  }, [pair, interval])
 
   useEffect(() => {
     const unsubscribe = krakenWsManager.subscribe({
       channel: 'ohlc',
       pair,
+      interval,
       onConnected: (connected) => {
         setOhlcState((s) => ({ ...s, connected }))
       },
@@ -98,7 +100,8 @@ export function useKrakenOhlc(pair: Pair): OhlcState {
         const parsed = KrakenOhlcPayload.safeParse(payload)
         if (!parsed.success) return
 
-        const [time, , openStr, highStr, lowStr, closeStr, , volumeStr] = parsed.data
+        const [timeStr, , openStr, highStr, lowStr, closeStr, , volumeStr] = parsed.data
+        const time = parseFloat(timeStr)
         const candle: Candle = {
           time,
           open: parseFloat(openStr),
@@ -110,6 +113,7 @@ export function useKrakenOhlc(pair: Pair): OhlcState {
 
         // Guard against non-finite values from malformed strings
         if (
+          !isFinite(candle.time) ||
           !isFinite(candle.open) ||
           !isFinite(candle.high) ||
           !isFinite(candle.low) ||
@@ -137,7 +141,7 @@ export function useKrakenOhlc(pair: Pair): OhlcState {
       },
     })
     return unsubscribe
-  }, [pair])
+  }, [pair, interval])
 
   return ohlcState
 }

@@ -18,6 +18,7 @@ vi.mock('@/components/RsiChart', () => ({
 
 const DEFAULT_PROPS = {
   pair: 'XBT/USDT' as const,
+  interval: 1 as const,
   candles: [],
   signal: 'HOLD' as const,
   signalResult: { signal: 'HOLD' as const, baseSignal: 'HOLD' as const },

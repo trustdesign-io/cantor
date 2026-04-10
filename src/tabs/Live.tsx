@@ -11,11 +11,13 @@ import { rsi } from '@/indicators/rsi'
 import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
 import type { EtfFlowEntry } from '@/data/etfFlows'
 import type { StablecoinSupplyData } from '@/data/stablecoinSupply'
-import type { Candle, Pair, Position, Signal, SignalEvent, SignalResult } from '@/types'
+import type { Candle, OhlcInterval, Pair, Position, Signal, SignalEvent, SignalResult } from '@/types'
 import type { DashboardSnapshot } from '@/types/commentary'
 
 interface LiveTabProps {
   pair: Pair
+  /** Active OHLC interval — used to clear the signal log on interval change */
+  interval: OhlcInterval
   candles: readonly Candle[]
   signal: Signal
   signalResult: SignalResult
@@ -33,7 +35,7 @@ interface LiveTabProps {
   fearGreedIndex: number | null
 }
 
-export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout, etfFlows, stablecoinData, fundingRate, fearGreedIndex }: LiveTabProps) {
+export function LiveTab({ pair, interval, candles, signal, signalResult, position, balance, macroBlackout, etfFlows, stablecoinData, fundingRate, fearGreedIndex }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
@@ -77,12 +79,13 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signal, signalResult, pair])
 
-  // Reset accumulated events and signal gate when pair changes
+  // Reset accumulated events and signal gate when pair or interval changes —
+  // signal history from a different pair or timeframe is meaningless.
   useEffect(() => {
     setEvents([])
     lastSignalRef.current = 'HOLD'
     lastVetoRef.current = undefined
-  }, [pair])
+  }, [pair, interval])
 
   // Build a stable DashboardSnapshot for the commentator on each candle update.
   // Indicator values are computed from the candle closes using the same functions
