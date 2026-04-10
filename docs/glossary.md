@@ -151,3 +151,13 @@ The difference between the perpetual futures price and the spot price. Related t
 **Why it matters:** When basis is extreme, it can indicate speculative excess. Basis compression (futures price falling toward spot) often accompanies deleveraging events.
 
 **In Cantor:** Basis is not currently tracked directly — funding rate is used as the practical proxy since it is more directly actionable.
+
+---
+
+## Fear & Greed Index
+
+A composite sentiment indicator for the crypto market, published daily by alternative.me on a scale of 0–100. Low values (0–25) indicate "extreme fear"; high values (75–100) indicate "extreme greed". The index aggregates volatility, market momentum, social media sentiment, Bitcoin dominance, and Google Trends data.
+
+**Caveats:** The index is a composite and lagging indicator. It reflects how people *feel* about the market, not what the market is actually doing. The correlation with future price direction is real at extremes but noisy and regime-dependent — do not treat it as a reliable standalone signal.
+
+**In Cantor:** The current index value is displayed as a small badge in the header. The `isFearGreedExtreme` filter vetoes new long positions when the index is above 80 (extreme greed, longs at risk of sentiment reversal) and new short positions when it is below 20 (extreme fear, shorts at risk of bounce).

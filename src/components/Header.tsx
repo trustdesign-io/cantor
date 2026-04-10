@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import type { FearGreedData } from '@/data/fearGreed'
 import type { Pair } from '@/types'
 
 interface HeaderProps {
@@ -10,6 +11,8 @@ interface HeaderProps {
   change24h: number | null
   /** Average perpetual funding rate as a decimal (e.g. 0.001 = 0.1% per 8h) — null while loading */
   fundingRate?: number | null
+  /** Current Fear & Greed index data — null while loading */
+  fearGreed?: FearGreedData | null
 }
 
 const PAIRS: Pair[] = ['XBT/USDT', 'ETH/USDT']
@@ -20,14 +23,25 @@ function formatFunding(rate: number): string {
   return rate >= 0 ? `+${pct}%` : `${pct}%`
 }
 
-/** Funding colour: positive → red (longs crowded), negative → green (shorts crowded), near-zero → muted */
+/**
+ * Funding colour: positive → red (longs crowded), negative → green (shorts crowded), near-zero → muted.
+ * Warning threshold (0.05%) is intentionally lower than the veto threshold (0.1%)
+ * so the badge warns before the filter actually fires.
+ */
 function fundingColor(rate: number): string {
   if (rate > 0.0005) return 'var(--loss)'    // positive and meaningful — longs crowded
   if (rate < -0.0002) return 'var(--win)'    // negative — shorts crowded
   return 'var(--text-secondary)'             // near-zero — neutral
 }
 
-export function Header({ pair, onPairChange, price, change24h, fundingRate }: HeaderProps) {
+/** Fear & Greed badge colour: extreme zones are highlighted, neutral is muted */
+function fearGreedColor(value: number): string {
+  if (value >= 75) return 'var(--loss)'         // greed zone — risk of veto at 80
+  if (value <= 25) return 'var(--win)'          // fear zone — risk of veto at 20
+  return 'var(--text-secondary)'                // neutral
+}
+
+export function Header({ pair, onPairChange, price, change24h, fundingRate, fearGreed }: HeaderProps) {
   const changePositive = change24h !== null && change24h >= 0
 
   return (
@@ -67,7 +81,7 @@ export function Header({ pair, onPairChange, price, change24h, fundingRate }: He
         </div>
       </div>
 
-      {/* Live price + funding rate */}
+      {/* Live price + signal context badges */}
       <div className="flex items-center gap-4">
         {/* Perpetual funding rate badge */}
         {fundingRate !== null && fundingRate !== undefined && (
@@ -84,6 +98,23 @@ export function Header({ pair, onPairChange, price, change24h, fundingRate }: He
               {formatFunding(fundingRate)}
             </span>
             <span style={{ color: 'var(--text-secondary)' }}>/8h</span>
+          </div>
+        )}
+
+        {/* Fear & Greed badge */}
+        {fearGreed !== null && fearGreed !== undefined && (
+          <div
+            className="flex items-center gap-1 text-xs"
+            title={`Fear & Greed Index: ${fearGreed.value} — ${fearGreed.classification}. Composite sentiment indicator from alternative.me. Lagging and noisy, but extreme readings (>80 greed / <20 fear) are used as contrarian filters.`}
+          >
+            <span style={{ color: 'var(--text-secondary)' }}>F&G</span>
+            <span
+              className="mono"
+              style={{ color: fearGreedColor(fearGreed.value) }}
+              aria-label={`Fear and Greed index ${fearGreed.value}, ${fearGreed.classification}`}
+            >
+              {fearGreed.value}
+            </span>
           </div>
         )}
 

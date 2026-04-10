@@ -32,7 +32,7 @@ export function isFundingExtreme(
   const { fundingRate } = context
 
   // Missing data — pass rather than veto
-  if (fundingRate === undefined || fundingRate === null) {
+  if (fundingRate === undefined) {
     return { ok: true }
   }
 
