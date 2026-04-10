@@ -26,8 +26,9 @@ interface KrakenOhlcResponse {
  * @param pair     - Trading pair (e.g. 'XBT/USDT').
  * @param interval - Candle interval in minutes (e.g. 1, 5, 60).
  * @param since    - Optional Unix timestamp (seconds). Kraken returns candles since this time.
- * @returns        - Array of Candle objects mapped from Kraken's response. Rows with
- *                   non-finite values are silently skipped.
+ * @returns        - Array of Candle objects mapped from Kraken's response. Each row is
+ *                   an 8-element tuple [time, open, high, low, close, vwap, volume, count].
+ *                   Rows with non-finite values are silently skipped.
  * @throws         - If the network request fails, the HTTP status is not OK, or the
  *                   Kraken error envelope contains error messages.
  */
