@@ -109,11 +109,11 @@ describe('computeMetrics', () => {
       expect(m.avgLoss).toBe(0)
     })
 
-    it('returns the average of losing pnlAbsolute values (negative)', () => {
+    it('returns the average loss as a positive magnitude', () => {
       const loss1 = makeTrade({ id: 'l1', pnlAbsolute: -400 })
       const loss2 = makeTrade({ id: 'l2', pnlAbsolute: -200 })
       const m = computeMetrics([loss1, loss2], STARTING_BALANCE)
-      expect(m.avgLoss).toBeCloseTo((-400 - 200) / 2, 4)
+      expect(m.avgLoss).toBeCloseTo(300, 4) // Math.abs((-400 + -200) / 2) = 300
     })
   })
 
@@ -143,6 +143,10 @@ describe('computeMetrics', () => {
       expect(computeMetrics([], STARTING_BALANCE).sharpeRatio).toBe(0)
     })
 
+    it('is 0 for a single trade (fewer than 2 needed for sample stddev)', () => {
+      expect(computeMetrics([WIN], STARTING_BALANCE).sharpeRatio).toBe(0)
+    })
+
     it('is 0 when all returns are identical (zero standard deviation)', () => {
       const t1 = makeTrade({ id: 't1', pnlPercent: 5 })
       const t2 = makeTrade({ id: 't2', pnlPercent: 5 })
@@ -153,6 +157,14 @@ describe('computeMetrics', () => {
     it('is positive when mean return exceeds zero with some variance', () => {
       const m = computeMetrics([WIN, WIN2, LOSS], STARTING_BALANCE)
       expect(m.sharpeRatio).toBeGreaterThan(0)
+    })
+  })
+
+  describe('edge cases', () => {
+    it('handles startingBalance = 0 without throwing (returns 0 for totalReturnPct)', () => {
+      const m = computeMetrics([WIN], 0)
+      expect(m.totalReturnPct).toBe(0)
+      expect(Number.isFinite(m.totalReturnPct)).toBe(true)
     })
   })
 })
