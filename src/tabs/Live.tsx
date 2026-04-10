@@ -11,9 +11,11 @@ interface LiveTabProps {
   signalResult: SignalResult
   position: Position | null
   balance: number
+  /** Active macro blackout event name (e.g. 'CPI', 'FOMC'), or null when clear */
+  macroBlackout: string | null
 }
 
-export function LiveTab({ pair, candles, signal, signalResult, position, balance }: LiveTabProps) {
+export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
@@ -65,22 +67,38 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
   }, [pair])
 
   return (
-    <div className="flex" style={{ height: 'calc(100vh - 88px)' }}>
-      {/* Charts — left 2/3, stacked vertically */}
-      <div className="flex flex-col" style={{ flex: '2 1 0', minWidth: 0 }}>
-        {/* Price + EMA chart — 75% of chart column height */}
-        <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
-          <PriceChart candles={candles} />
+    <div className="flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
+      {macroBlackout !== null && (
+        <div
+          role="alert"
+          className="flex items-center justify-center gap-2 px-4 py-1.5 text-sm font-medium"
+          style={{
+            backgroundColor: 'color-mix(in srgb, #f59e0b 18%, var(--bg-surface))',
+            borderBottom: '1px solid color-mix(in srgb, #f59e0b 40%, transparent)',
+            color: '#92400e',
+          }}
+        >
+          <span aria-hidden="true">⚠</span>
+          Macro blackout active — {macroBlackout} release window. New positions suppressed.
         </div>
-        {/* RSI panel — 25% of chart column height */}
-        <div style={{ flex: '1 1 0', minHeight: 0 }}>
-          <RsiChart candles={candles} />
+      )}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Charts — left 2/3, stacked vertically */}
+        <div className="flex flex-col" style={{ flex: '2 1 0', minWidth: 0 }}>
+          {/* Price + EMA chart — 75% of chart column height */}
+          <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
+            <PriceChart candles={candles} />
+          </div>
+          {/* RSI panel — 25% of chart column height */}
+          <div style={{ flex: '1 1 0', minHeight: 0 }}>
+            <RsiChart candles={candles} />
+          </div>
         </div>
-      </div>
 
-      {/* Signal log — right 1/3 */}
-      <div style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}>
-        <SignalLog events={events} position={position} balance={balance} />
+        {/* Signal log — right 1/3 */}
+        <div style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}>
+          <SignalLog events={events} position={position} balance={balance} />
+        </div>
       </div>
     </div>
   )

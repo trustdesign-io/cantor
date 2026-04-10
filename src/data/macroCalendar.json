@@ -1,0 +1,12 @@
+[
+  { "event": "CPI",  "date": "2026-04-14", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "NFP",  "date": "2026-05-01", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "FOMC", "date": "2026-05-07", "time": "14:00", "timezone": "America/New_York" },
+  { "event": "CPI",  "date": "2026-05-13", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "NFP",  "date": "2026-06-05", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "CPI",  "date": "2026-06-11", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "FOMC", "date": "2026-06-18", "time": "14:00", "timezone": "America/New_York" },
+  { "event": "NFP",  "date": "2026-07-02", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "CPI",  "date": "2026-07-14", "time": "08:30", "timezone": "America/New_York" },
+  { "event": "FOMC", "date": "2026-07-30", "time": "14:00", "timezone": "America/New_York" }
+]

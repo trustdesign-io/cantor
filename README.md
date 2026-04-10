@@ -23,6 +23,18 @@ When both conditions are met, the paper trader executes a simulated order at the
 
 The Backtest tab runs the same strategy against historical 60-minute candles fetched from Kraken's REST API for any date range you choose.
 
+## Signal filters
+
+Signals pass through an ordered filter pipeline before the paper trader acts on them. Any filter can veto (downgrade to HOLD) with a human-readable reason shown in the Signal Log.
+
+| Filter | What it checks | Veto condition |
+|--------|----------------|----------------|
+| Funding rate | Average perp funding across Binance + Bybit | > +0.1% / 8h (longs crowded) or < -0.05% / 8h (shorts crowded) |
+| Fear & Greed | alternative.me index (0–100) | > 80 (extreme greed) or < 20 (extreme fear) |
+| Macro blackout | Hard-coded FOMC / CPI / NFP release calendar | Within 1 hour before or after any scheduled event |
+
+> **⚠️ Macro calendar is hard-coded.** `src/data/macroCalendar.json` covers one quarter of upcoming FOMC, CPI, and NFP dates. It must be updated manually every quarter. A future ticket will automate this from a free economic calendar API.
+
 ## Docs
 
 - [docs/glossary.md](docs/glossary.md) — plain-language definitions for EMA, RSI, paper trading, backtesting, Sharpe ratio, drawdown, win rate, position sizing, and crossover signals

@@ -1,6 +1,7 @@
 import type { Candle, FilterContext, FilterFn, Signal, SignalResult } from '@/types'
 import { isFundingExtreme } from '@/strategy/filters/funding'
 import { isFearGreedExtreme } from '@/strategy/filters/fearGreed'
+import { isMacroBlackout } from '@/strategy/filters/macro'
 
 /** EMA fast period — reacts quickly to price changes, captures short-term momentum */
 export const EMA_FAST_PERIOD = 9
@@ -85,10 +86,12 @@ export function computeSignal(
  *
  * Phase 8.1: isFundingExtreme — veto on crowded-side perpetual funding.
  * Phase 8.2: isFearGreedExtreme — veto on extreme sentiment (>80 or <20).
+ * Phase 8.3: isMacroBlackout — veto during 2h windows around FOMC/CPI/NFP.
  */
 export const DEFAULT_FILTERS: readonly FilterFn[] = [
   isFundingExtreme,
   isFearGreedExtreme,
+  isMacroBlackout,
 ]
 
 /**
