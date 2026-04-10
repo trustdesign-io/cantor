@@ -5,6 +5,7 @@ import { computeMetrics } from '@/metrics/performance'
 import { Journal } from '@/components/Journal'
 import { Performance } from '@/components/Performance'
 import { INITIAL_BALANCE } from '@/strategy/paperTrader'
+import type { PerformanceMetrics } from '@/metrics/performance'
 import type { Pair, Trade } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -29,28 +30,41 @@ interface BacktestTabProps {
   pair: Pair
 }
 
+interface Results {
+  trades: readonly Trade[]
+  metrics: PerformanceMetrics
+}
+
 export function BacktestTab({ pair }: BacktestTabProps) {
+  const today = toDateString(new Date())
+
   const [startDate, setStartDate] = useState(defaultStartDate)
   const [endDate, setEndDate]     = useState(defaultEndDate)
   const [status, setStatus]       = useState<Status>('idle')
-  const [trades, setTrades]       = useState<readonly Trade[]>([])
+  const [results, setResults]     = useState<Results | null>(null)
   const [error, setError]         = useState<string | null>(null)
 
   async function handleRun() {
     setStatus('loading')
-    setTrades([])
+    setResults(null)
     setError(null)
 
     try {
       const since = Math.floor(new Date(startDate).getTime() / 1000)
-      const candles = await fetchOHLC(pair, 60, since)
+      // endDate is inclusive — include all candles up to 23:59:59 of the end day
+      const until = Math.floor(new Date(endDate).getTime() / 1000) + 24 * 60 * 60 - 1
+
+      const allCandles = await fetchOHLC(pair, 60, since)
+      // Client-side filter to respect the end date (Kraken doesn't take an `until` param)
+      const candles = allCandles.filter(c => c.time <= until)
 
       if (candles.length === 0) {
         throw new Error('No candle data returned for the selected date range.')
       }
 
-      const result = runBacktest(candles, pair)
-      setTrades(result.trades)
+      const result  = runBacktest(candles, pair)
+      const metrics = computeMetrics(result.trades, INITIAL_BALANCE)
+      setResults({ trades: result.trades, metrics })
       setStatus('done')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.')
@@ -104,6 +118,7 @@ export function BacktestTab({ pair }: BacktestTabProps) {
             value={endDate}
             onChange={e => setEndDate(e.target.value)}
             min={startDate}
+            max={today}
             className="rounded px-3 py-2 text-sm"
             style={{
               backgroundColor: 'var(--bg-surface)',
@@ -153,13 +168,13 @@ export function BacktestTab({ pair }: BacktestTabProps) {
       )}
 
       {/* ── Results ──────────────────────────────────────────────────────── */}
-      {status === 'done' && (
+      {status === 'done' && results && (
         <div className="flex flex-col gap-6">
           <section aria-label="Backtest performance">
-            <Performance metrics={computeMetrics(trades, INITIAL_BALANCE)} />
+            <Performance metrics={results.metrics} />
           </section>
           <section aria-label="Backtest trade journal">
-            <Journal trades={trades} />
+            <Journal trades={results.trades} />
           </section>
         </div>
       )}
