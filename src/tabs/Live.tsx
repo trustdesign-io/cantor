@@ -4,7 +4,7 @@ import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
 import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useLiveStrategy } from '@/hooks/useLiveStrategy'
-import type { Pair, SignalEvent } from '@/types'
+import type { Pair, Signal, SignalEvent } from '@/types'
 
 interface LiveTabProps {
   pair: Pair
@@ -18,8 +18,10 @@ export function LiveTab({ pair }: LiveTabProps) {
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
   const [events, setEvents] = useState<SignalEvent[]>([])
-  const lastSignalRef = useRef<string>('HOLD')
-
+  const lastSignalRef = useRef<Signal>('HOLD')
+  // `candles` is intentionally omitted from deps: we only need to fire when
+  // `signal` changes (which itself only changes in response to new candles).
+  // Including `candles` would add a spurious run on every tick.
   useEffect(() => {
     if (signal !== 'HOLD' && signal !== lastSignalRef.current) {
       const last = candles[candles.length - 1]
@@ -35,7 +37,8 @@ export function LiveTab({ pair }: LiveTabProps) {
       ])
     }
     lastSignalRef.current = signal
-  }, [signal, pair, candles])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signal, pair])
 
   // Reset accumulated events and signal gate when pair changes
   useEffect(() => {
