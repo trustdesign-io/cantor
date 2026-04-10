@@ -3,7 +3,9 @@ import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
 import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
+import { StablecoinPanel } from '@/components/StablecoinPanel'
 import type { EtfFlowEntry } from '@/data/etfFlows'
+import type { StablecoinSupplyData } from '@/data/stablecoinSupply'
 import type { Candle, Pair, Position, Signal, SignalEvent, SignalResult } from '@/types'
 
 interface LiveTabProps {
@@ -17,9 +19,11 @@ interface LiveTabProps {
   macroBlackout: string | null
   /** Last 14 days of BTC ETF net flows, or null when unavailable */
   etfFlows: readonly EtfFlowEntry[] | null
+  /** Last 7 days of stablecoin supply data, or null when unavailable */
+  stablecoinData: StablecoinSupplyData | null
 }
 
-export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout, etfFlows }: LiveTabProps) {
+export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout, etfFlows, stablecoinData }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
@@ -108,6 +112,7 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
             <SignalLog events={events} position={position} balance={balance} />
           </div>
           <EtfFlowsPanel flows={etfFlows} />
+          <StablecoinPanel data={stablecoinData} />
         </div>
       </div>
     </div>

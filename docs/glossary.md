@@ -201,3 +201,35 @@ The difference between new capital flowing into an ETF (creations) and capital f
 **Why it matters:** For spot BTC ETFs, net flows are a near-real-time indicator of institutional demand. A single day of outflows is common and unremarkable. A streak of three or more consecutive negative-flow days has historically correlated with BTC price weakness in the 2024–2025 period, as it indicates sustained institutional selling.
 
 **In Cantor:** Net flows are displayed in USD millions per day. The bar chart uses green for positive days (inflow) and red for negative days (outflow).
+
+---
+
+## Stablecoin
+
+A cryptocurrency designed to maintain a stable price, typically pegged 1:1 to the US dollar. USDT (Tether) and USDC (Circle) are the two largest by circulating supply, together accounting for the majority of on-chain dollar liquidity.
+
+**Why it matters:** Stablecoin supply is a proxy for the amount of dollar-denominated capital sitting on the sidelines ready to be deployed into crypto markets. Rapid growth in circulating supply ("minting") has historically preceded or coincided with BTC price rises, as it suggests new buying power entering the ecosystem.
+
+**Caveats:** The correlation is real but noisy and regime-dependent. It is stronger during bull markets than bear markets. Mints can also represent capital rotating *within* crypto rather than new inflows from fiat. Observe alongside price and other signals for at least a month before drawing conclusions.
+
+**In Cantor:** The Stablecoin Supply panel on the Live tab shows the last 7 days of combined USDT + USDC circulating supply, sourced from the CoinGecko public API. The panel is informational only and does not feed any filters in the current release.
+
+---
+
+## Circulating supply
+
+The total quantity of a cryptocurrency token currently in existence and available for trading, as opposed to tokens that are locked, reserved, or not yet issued.
+
+**Why it matters:** For stablecoins, circulating supply equals the number of dollar-equivalent tokens outstanding. An increase in circulating supply means new tokens have been minted (issued) and new capital has entered that stablecoin's ecosystem.
+
+**In Cantor:** The stablecoin supply panel tracks combined USDT + USDC circulating supply in USD billions. CoinGecko market cap data is used as the proxy for circulating supply because the price of each stablecoin is approximately $1.
+
+---
+
+## Mint (stablecoin)
+
+The act of issuing new stablecoin tokens, increasing the total circulating supply. When Tether or Circle mint new tokens, the counterparty has deposited an equivalent amount of US dollars with the issuer.
+
+**Why it matters:** A large single-day mint is a potential leading indicator of a price move: new dollar capital has been converted to stablecoin and may soon be deployed to buy crypto assets. The signal is probabilistic, not deterministic.
+
+**In Cantor:** A "Mint" badge appears on the Stablecoin Supply panel when the combined USDT + USDC supply increases by more than 0.5B USD in a single day (the `LARGE_MINT_THRESHOLD_BILLIONS` constant in `src/data/stablecoinSupply.ts`). The badge highlights the single largest qualifying mint day within the 7-day window.

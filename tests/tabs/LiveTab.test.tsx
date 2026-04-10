@@ -25,6 +25,7 @@ const DEFAULT_PROPS = {
   balance: 10_000,
   macroBlackout: null,
   etfFlows: null,
+  stablecoinData: null,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

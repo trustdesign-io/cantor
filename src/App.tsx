@@ -11,6 +11,7 @@ import { useLiveStrategy } from '@/hooks/useLiveStrategy'
 import { useFundingRate } from '@/hooks/useFundingRate'
 import { useFearGreed } from '@/hooks/useFearGreed'
 import { useEtfFlows } from '@/hooks/useEtfFlows'
+import { useStablecoinSupply } from '@/hooks/useStablecoinSupply'
 import { getActiveBlackout } from '@/data/macroCalendar'
 import type { FilterContext, Pair, Tab } from '@/types'
 
@@ -55,6 +56,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
   const { fundingRate } = useFundingRate()
   const { fearGreed } = useFearGreed()
   const { flows: etfFlows } = useEtfFlows()
+  const { data: stablecoinData } = useStablecoinSupply()
 
   // Stable FilterContext — only rebuilds when the underlying values change.
   // Passing an inline object literal would recreate it every render, causing
@@ -89,7 +91,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
       <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
         {activeTab === 'live' && (
-          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} etfFlows={etfFlows} />
+          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} etfFlows={etfFlows} stablecoinData={stablecoinData} />
         )}
         {activeTab === 'backtest' && <BacktestTab pair={pair} />}
         {activeTab === 'journal' && <JournalTab trades={trades} />}
