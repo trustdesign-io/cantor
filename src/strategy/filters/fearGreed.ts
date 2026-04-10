@@ -30,7 +30,7 @@ export function isFearGreedExtreme(
 ): ReturnType<FilterFn> {
   const { fearGreedIndex } = context
 
-  if (fearGreedIndex === undefined || fearGreedIndex === null) {
+  if (fearGreedIndex === undefined) {
     return { ok: true }
   }
 
