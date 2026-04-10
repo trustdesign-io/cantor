@@ -86,6 +86,7 @@ export function StablecoinPanel({ data }: StablecoinPanelProps) {
           {largeMint !== null && (
             <span
               title={`Large mint on ${formatDate(largeMint.date)}: +${LARGE_MINT_THRESHOLD_BILLIONS}B+ added`}
+              aria-label={`Large stablecoin mint on ${formatDate(largeMint.date)}`}
               className="text-xs px-1 py-0.5 rounded"
               style={{
                 backgroundColor: 'color-mix(in srgb, #22c55e 20%, var(--bg-surface))',

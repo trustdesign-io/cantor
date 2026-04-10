@@ -83,12 +83,13 @@ function parseDailySupply(data: unknown): Map<string, number> {
 }
 
 function buildUrl(coinId: string): string {
-  const apiKey = (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_COINGECKO_API_KEY
+  const apiKey = import.meta.env.VITE_COINGECKO_API_KEY
   const base = apiKey
     ? `https://pro-api.coingecko.com/api/v3`
     : `https://api.coingecko.com/api/v3`
-  const keyParam = apiKey ? `&x_cg_pro_api_key=${apiKey}` : ''
-  return `${base}/coins/${coinId}/market_chart?vs_currency=usd&days=7&interval=daily${keyParam}`
+  // Key passed as header in fetch options — not appended to the URL — to avoid
+  // it appearing in plain text in browser DevTools network logs.
+  return `${base}/coins/${coinId}/market_chart?vs_currency=usd&days=7&interval=daily`
 }
 
 /**
@@ -99,9 +100,11 @@ export async function fetchStablecoinSupply(): Promise<StablecoinSupplyData | nu
   if (isFresh()) return cache!.data
 
   try {
+    const apiKey = import.meta.env.VITE_COINGECKO_API_KEY
+    const headers: HeadersInit = apiKey ? { 'x-cg-pro-api-key': String(apiKey) } : {}
     const [usdtRes, usdcRes] = await Promise.all([
-      fetch(buildUrl('tether')),
-      fetch(buildUrl('usd-coin')),
+      fetch(buildUrl('tether'), { headers }),
+      fetch(buildUrl('usd-coin'), { headers }),
     ])
 
     if (!usdtRes.ok) throw new Error(`CoinGecko USDT fetch failed: ${usdtRes.status}`)
@@ -123,8 +126,9 @@ export async function fetchStablecoinSupply(): Promise<StablecoinSupplyData | nu
       return { date, usdtBillions: usdt, usdcBillions: usdc, totalBillions: usdt + usdc }
     })
 
-    const data: StablecoinSupplyData = { snapshots, fetchedAt: Date.now() }
-    cache = { data, fetchedAt: Date.now() }
+    const fetchedAt = Date.now()
+    const data: StablecoinSupplyData = { snapshots, fetchedAt }
+    cache = { data, fetchedAt }
     return data
   } catch {
     // Fail-open — stablecoin data is supplementary and experimental.
