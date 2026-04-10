@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react'
+import { Group, Panel, Separator, type Layout } from 'react-resizable-panels'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
@@ -33,6 +34,41 @@ interface LiveTabProps {
   fundingRate: number | null
   /** Crypto Fear & Greed Index 0–100, or null while loading */
   fearGreedIndex: number | null
+}
+
+/**
+ * LocalStorage keys for persisted panel layouts. react-resizable-panels v4 has
+ * no `autoSaveId` prop — we manage persistence ourselves via the `defaultLayout`
+ * prop on mount and the `onLayoutChanged` callback on commit.
+ */
+const LS_KEY_OUTER = 'cantor.live.layout.outer'
+const LS_KEY_CHART_COL = 'cantor.live.layout.chartCol'
+const LS_KEY_SIDEBAR = 'cantor.live.layout.sidebar'
+
+/** Safe read + JSON parse for a layout from localStorage. */
+function loadLayout(key: string): Layout | undefined {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw === null) return undefined
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed === null || typeof parsed !== 'object') return undefined
+    // Shallow validation: all values must be finite numbers
+    for (const v of Object.values(parsed as Record<string, unknown>)) {
+      if (typeof v !== 'number' || !isFinite(v)) return undefined
+    }
+    return parsed as Layout
+  } catch {
+    return undefined
+  }
+}
+
+/** Safe save for a layout to localStorage. */
+function saveLayout(key: string, layout: Layout): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(layout))
+  } catch {
+    // localStorage may throw in private mode — ignore
+  }
 }
 
 export function LiveTab({ pair, interval, candles, signal, signalResult, position, balance, macroBlackout, etfFlows, stablecoinData, fundingRate, fearGreedIndex }: LiveTabProps) {
@@ -114,6 +150,52 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
     }
   }, [candles, signal, signalResult, position, fundingRate, fearGreedIndex])
 
+  // Load persisted layouts once on mount. Using useMemo keeps the initial
+  // layout stable across re-renders without triggering a state update.
+  const initialOuter = useMemo(() => loadLayout(LS_KEY_OUTER), [])
+  const initialChartCol = useMemo(() => loadLayout(LS_KEY_CHART_COL), [])
+  const initialSidebar = useMemo(() => loadLayout(LS_KEY_SIDEBAR), [])
+
+  const onOuterLayoutChanged = useCallback((layout: Layout) => {
+    saveLayout(LS_KEY_OUTER, layout)
+  }, [])
+  const onChartColLayoutChanged = useCallback((layout: Layout) => {
+    saveLayout(LS_KEY_CHART_COL, layout)
+  }, [])
+  const onSidebarLayoutChanged = useCallback((layout: Layout) => {
+    saveLayout(LS_KEY_SIDEBAR, layout)
+  }, [])
+
+  // Clear saved layouts and reload so defaults take effect.
+  const handleResetLayout = useCallback(() => {
+    try {
+      localStorage.removeItem(LS_KEY_OUTER)
+      localStorage.removeItem(LS_KEY_CHART_COL)
+      localStorage.removeItem(LS_KEY_SIDEBAR)
+    } catch {
+      // localStorage may throw in private mode — ignore, the reload will
+      // still work with the in-memory defaults
+    }
+    window.location.reload()
+  }, [])
+
+  // Shared Separator styles. react-resizable-panels forbids overriding
+  // flex-grow/flex-shrink on Separators, but size/background/cursor are fine.
+  const hSeparatorStyle = {
+    width: 4,
+    background: 'var(--border)',
+    cursor: 'col-resize',
+  } as const
+  const vSeparatorStyle = {
+    height: 4,
+    background: 'var(--border)',
+    cursor: 'row-resize',
+  } as const
+
+  // Shared Panel style — Panel applies style to its inner wrapper div.
+  const panelFillStyle = { width: '100%', height: '100%' } as const
+  const panelScrollStyle = { width: '100%', height: '100%', overflowY: 'auto' } as const
+
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
       {macroBlackout !== null && (
@@ -130,84 +212,166 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
           Macro blackout active — {macroBlackout} release window. New positions suppressed.
         </div>
       )}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Charts — left 2/3, stacked vertically */}
-        <div className="flex flex-col" style={{ flex: '2 1 0', minWidth: 0 }}>
-          {/* Price + EMA chart — 75% of chart column height */}
-          <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)', position: 'relative' }}>
-            <PriceChart candles={candles} />
-            {/* EMA legend overlay with teach-me buttons */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 8,
-                left: 8,
-                display: 'flex',
-                gap: 12,
-                zIndex: 2,
-                pointerEvents: 'none',
-              }}
-            >
-              <span
-                className="flex items-center gap-1 text-xs"
-                style={{ color: '#22d3ee', pointerEvents: 'auto' }}
-              >
-                EMA {EMA_FAST_PERIOD}
-                <TeachMeButton
-                  topicId="ema-fast"
-                  currentValue={isNaN(snapshot.emaFast) ? 'not yet calculated' : snapshot.emaFast.toFixed(2)}
-                />
-              </span>
-              <span
-                className="flex items-center gap-1 text-xs"
-                style={{ color: '#f59e0b', pointerEvents: 'auto' }}
-              >
-                EMA {EMA_SLOW_PERIOD}
-                <TeachMeButton
-                  topicId="ema-slow"
-                  currentValue={isNaN(snapshot.emaSlow) ? 'not yet calculated' : snapshot.emaSlow.toFixed(2)}
-                />
-              </span>
-            </div>
-          </div>
-          {/* RSI panel — 25% of chart column height */}
-          <div style={{ flex: '1 1 0', minHeight: 0, position: 'relative' }}>
-            <RsiChart candles={candles} />
-            {/* RSI label overlay with teach-me button */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 4,
-                left: 8,
-                zIndex: 2,
-              }}
-            >
-              <span
-                className="flex items-center gap-1 text-xs"
-                style={{ color: '#a78bfa' }}
-              >
-                RSI {RSI_PERIOD}
-                <TeachMeButton
-                  topicId="rsi"
-                  currentValue={isNaN(snapshot.rsi) ? 'not yet calculated' : snapshot.rsi.toFixed(1)}
-                />
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Signal log + ETF flows panel — right 1/3 */}
-        <div
-          className="flex flex-col"
-          style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}
+      <div className="flex-1 overflow-hidden">
+        <Group
+          orientation="horizontal"
+          id="cantor.live.outer"
+          defaultLayout={initialOuter}
+          onLayoutChanged={onOuterLayoutChanged}
+          style={{ width: '100%', height: '100%' }}
         >
-          <div className="flex-1 overflow-hidden">
-            <SignalLog events={events} position={position} balance={balance} />
-          </div>
-          <CommentatorPanel snapshot={snapshot} />
-          <EtfFlowsPanel flows={etfFlows} />
-          <StablecoinPanel data={stablecoinData} />
-        </div>
+          {/* Charts column — left 2/3, stacked vertically */}
+          <Panel id="charts" defaultSize={67} minSize={40} style={panelFillStyle}>
+            <Group
+              orientation="vertical"
+              id="cantor.live.chartCol"
+              defaultLayout={initialChartCol}
+              onLayoutChanged={onChartColLayoutChanged}
+              style={{ width: '100%', height: '100%' }}
+            >
+              {/* Price + EMA chart */}
+              <Panel id="price" defaultSize={75} minSize={30} style={panelFillStyle}>
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  <PriceChart candles={candles} />
+                  {/* EMA legend overlay with teach-me buttons */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      left: 8,
+                      display: 'flex',
+                      gap: 12,
+                      zIndex: 2,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <span
+                      className="flex items-center gap-1 text-xs"
+                      style={{ color: '#22d3ee', pointerEvents: 'auto' }}
+                    >
+                      EMA {EMA_FAST_PERIOD}
+                      <TeachMeButton
+                        topicId="ema-fast"
+                        currentValue={isNaN(snapshot.emaFast) ? 'not yet calculated' : snapshot.emaFast.toFixed(2)}
+                      />
+                    </span>
+                    <span
+                      className="flex items-center gap-1 text-xs"
+                      style={{ color: '#f59e0b', pointerEvents: 'auto' }}
+                    >
+                      EMA {EMA_SLOW_PERIOD}
+                      <TeachMeButton
+                        topicId="ema-slow"
+                        currentValue={isNaN(snapshot.emaSlow) ? 'not yet calculated' : snapshot.emaSlow.toFixed(2)}
+                      />
+                    </span>
+                  </div>
+                  {/* Reset layout button — top right of the price chart */}
+                  <button
+                    type="button"
+                    onClick={handleResetLayout}
+                    aria-label="Reset layout to defaults"
+                    title="Reset layout"
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      zIndex: 2,
+                      width: 22,
+                      height: 22,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: 0,
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 4,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      fontSize: 13,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ⟲
+                  </button>
+                </div>
+              </Panel>
+              <Separator
+                aria-label="Resize price chart and RSI panel"
+                style={vSeparatorStyle}
+              />
+              {/* RSI panel */}
+              <Panel id="rsi" defaultSize={25} minSize={15} style={panelFillStyle}>
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  <RsiChart candles={candles} />
+                  {/* RSI label overlay with teach-me button */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      left: 8,
+                      zIndex: 2,
+                    }}
+                  >
+                    <span
+                      className="flex items-center gap-1 text-xs"
+                      style={{ color: '#a78bfa' }}
+                    >
+                      RSI {RSI_PERIOD}
+                      <TeachMeButton
+                        topicId="rsi"
+                        currentValue={isNaN(snapshot.rsi) ? 'not yet calculated' : snapshot.rsi.toFixed(1)}
+                      />
+                    </span>
+                  </div>
+                </div>
+              </Panel>
+            </Group>
+          </Panel>
+          <Separator
+            aria-label="Resize chart and sidebar panes"
+            style={hSeparatorStyle}
+          />
+          {/* Sidebar — right 1/3, stacked vertically */}
+          <Panel id="sidebar" defaultSize={33} minSize={20} style={panelFillStyle}>
+            <Group
+              orientation="vertical"
+              id="cantor.live.sidebar"
+              defaultLayout={initialSidebar}
+              onLayoutChanged={onSidebarLayoutChanged}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <Panel id="signalLog" defaultSize={35} minSize={15} style={panelFillStyle}>
+                <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+                  <SignalLog events={events} position={position} balance={balance} />
+                </div>
+              </Panel>
+              <Separator
+                aria-label="Resize signal log and commentary"
+                style={vSeparatorStyle}
+              />
+              <Panel id="commentary" defaultSize={25} minSize={15} style={panelFillStyle}>
+                <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+                  <CommentatorPanel snapshot={snapshot} />
+                </div>
+              </Panel>
+              <Separator
+                aria-label="Resize commentary and ETF flows"
+                style={vSeparatorStyle}
+              />
+              <Panel id="etfFlows" defaultSize={20} minSize={10} style={panelScrollStyle}>
+                <EtfFlowsPanel flows={etfFlows} pair={pair} />
+              </Panel>
+              <Separator
+                aria-label="Resize ETF flows and stablecoin supply"
+                style={vSeparatorStyle}
+              />
+              <Panel id="stablecoin" defaultSize={20} minSize={10} style={panelScrollStyle}>
+                <StablecoinPanel data={stablecoinData} />
+              </Panel>
+            </Group>
+          </Panel>
+        </Group>
       </div>
     </div>
   )

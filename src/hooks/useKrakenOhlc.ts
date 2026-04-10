@@ -7,9 +7,21 @@ import type { Candle, OhlcInterval, Pair } from '@/types'
 // Kraken WS v1 sends time as a microsecond-precise string (e.g. "1775846735.297534").
 // Declaring position 0 as z.number() causes safeParse to reject every real message.
 // Use z.string() and parseFloat() when building the Candle.
+//
+// IMPORTANT — which field to use as the Candle.time:
+//   Index 0 ("time") is Kraken's name for the *last update time* of the in-progress
+//   candle: it floats continuously (e.g. 1775857441.697132) as ticks arrive within
+//   a bucket. It is NOT a bucket boundary despite the field name.
+//   Index 1 ("etime") is the *end time of the interval* — a clean second boundary
+//   (e.g. 1775857500) that matches what Kraken REST OHLC returns.
+//
+// We must use etime (index 1) so that REST backfill candles and WS live candles
+// live on the same time grid. Using `time` (index 0) causes lightweight-charts to
+// crash with "data must be asc ordered by time" when a WS update (microsecond
+// stamp inside the current minute) is appended after a REST candle (bucket end).
 const KrakenOhlcPayload = z.tuple([
-  z.string(), // 0: begin time of interval, seconds since epoch (string)
-  z.string(), // 1: end time of interval
+  z.string(), // 0: last-update time, seconds since epoch (microsecond-precise string) — DO NOT USE
+  z.string(), // 1: end time of interval (bucket boundary) — USE THIS as Candle.time
   z.string(), // 2: open
   z.string(), // 3: high
   z.string(), // 4: low
@@ -100,8 +112,10 @@ export function useKrakenOhlc(pair: Pair, interval: OhlcInterval): OhlcState {
         const parsed = KrakenOhlcPayload.safeParse(payload)
         if (!parsed.success) return
 
-        const [timeStr, , openStr, highStr, lowStr, closeStr, , volumeStr] = parsed.data
-        const time = parseFloat(timeStr)
+        // Use etime (index 1) — the bucket end boundary — not time (index 0),
+        // which is a live-updating microsecond stamp and does not match REST.
+        const [, etimeStr, openStr, highStr, lowStr, closeStr, , volumeStr] = parsed.data
+        const time = parseFloat(etimeStr)
         const candle: Candle = {
           time,
           open: parseFloat(openStr),
@@ -126,16 +140,56 @@ export function useKrakenOhlc(pair: Pair, interval: OhlcInterval): OhlcState {
           const { candles } = s
           const last = candles[candles.length - 1]
 
+          // Fast path: same bucket as last — update in place.
           if (last && last.time === time) {
-            // Same interval — update current candle in place
             return { ...s, candles: [...candles.slice(0, -1), candle] }
           }
 
-          // New interval — append, bounded at MAX_CANDLES
+          // Fast path: strictly newer than last — append, bounded at MAX_CANDLES.
+          // This is by far the common case; the branches below only run when
+          // Kraken emits an out-of-order final update for a prior bucket.
+          if (!last || time > last.time) {
+            const next =
+              candles.length >= MAX_CANDLES
+                ? [...candles.slice(1), candle]
+                : [...candles, candle]
+            return { ...s, candles: next }
+          }
+
+          // Out-of-order: the incoming candle is for a bucket that is not
+          // the current last. This happens because Kraken's ohlc channel can
+          // deliver a "final update" for the just-closed bucket *after* it
+          // has already started emitting ticks for the next one. Blindly
+          // appending would violate lightweight-charts' ascending-order
+          // invariant and crash the chart.
+          //
+          // Resolution: binary search for an existing candle at the same
+          // bucket time and update it in place; otherwise insert at the
+          // correct sorted position. The bounded buffer is enforced after
+          // the insert so we don't exceed MAX_CANDLES.
+          let lo = 0
+          let hi = candles.length - 1
+          while (lo <= hi) {
+            const mid = (lo + hi) >> 1
+            const midTime = candles[mid]!.time
+            if (midTime === time) {
+              // Found an existing candle for this bucket — replace it.
+              const next = candles.slice()
+              next[mid] = candle
+              return { ...s, candles: next }
+            }
+            if (midTime < time) lo = mid + 1
+            else hi = mid - 1
+          }
+          // No existing candle for this bucket — insert at `lo` (the first
+          // index whose time is greater than ours), preserving sort order.
+          const inserted = [
+            ...candles.slice(0, lo),
+            candle,
+            ...candles.slice(lo),
+          ]
           const next =
-            candles.length >= MAX_CANDLES
-              ? [...candles.slice(1), candle]
-              : [...candles, candle]
+            inserted.length > MAX_CANDLES ? inserted.slice(inserted.length - MAX_CANDLES) : inserted
           return { ...s, candles: next }
         })
       },

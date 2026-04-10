@@ -57,8 +57,8 @@ export function CommentatorPanel({ snapshot }: CommentatorPanelProps) {
         background: 'var(--bg-surface)',
         display: 'flex',
         flexDirection: 'column',
-        minHeight: 180,
-        maxHeight: 320,
+        height: '100%',
+        minHeight: 0,
       }}
     >
       {/* Header */}
@@ -91,6 +91,8 @@ export function CommentatorPanel({ snapshot }: CommentatorPanelProps) {
               padding: '1px 4px',
               cursor: ollamaUnreachable ? 'not-allowed' : 'pointer',
               opacity: ollamaUnreachable ? 0.6 : 1,
+              maxWidth: 110,
+              textOverflow: 'ellipsis',
             }}
           >
             {/* Always show the current selection even if models list is empty/loading */}

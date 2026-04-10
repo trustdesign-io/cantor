@@ -19,7 +19,7 @@ interface HeaderProps {
   fearGreed?: FearGreedData | null
 }
 
-const PAIRS: Pair[] = ['XBT/USDT', 'ETH/USDT']
+const PAIRS: Pair[] = ['XBT/USDT', 'ETH/USDT', 'XRP/USDT']
 
 const INTERVALS: { value: OhlcInterval; label: string }[] = [
   { value: 1,   label: '1m' },

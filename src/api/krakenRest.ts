@@ -7,6 +7,7 @@ const KRAKEN_BASE = 'https://api.kraken.com/0/public'
 const PAIR_MAP: Record<Pair, string> = {
   'XBT/USDT': 'XBTUSDT',
   'ETH/USDT': 'ETHUSDT',
+  'XRP/USDT': 'XRPUSDT',
 }
 
 // Kraken REST /0/public/OHLC returns 8-element rows: [time, open, high, low, close, vwap, volume, count].

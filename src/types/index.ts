@@ -1,5 +1,5 @@
 /** Trading pair available in Cantor v0.1 */
-export type Pair = 'XBT/USDT' | 'ETH/USDT'
+export type Pair = 'XBT/USDT' | 'ETH/USDT' | 'XRP/USDT'
 
 /**
  * OHLC candle interval in minutes.
