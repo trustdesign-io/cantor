@@ -2,18 +2,17 @@ import { useState, useEffect, useRef } from 'react'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
-import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
-import { useLiveStrategy } from '@/hooks/useLiveStrategy'
-import type { Pair, Signal, SignalEvent } from '@/types'
+import type { Candle, Pair, Position, Signal, SignalEvent } from '@/types'
 
 interface LiveTabProps {
   pair: Pair
+  candles: readonly Candle[]
+  signal: Signal
+  position: Position | null
+  balance: number
 }
 
-export function LiveTab({ pair }: LiveTabProps) {
-  const { candles } = useKrakenOhlc(pair)
-  const { signal, position, balance } = useLiveStrategy(pair, candles)
-
+export function LiveTab({ pair, candles, signal, position, balance }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.

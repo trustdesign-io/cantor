@@ -6,6 +6,8 @@ import { BacktestTab } from '@/tabs/Backtest'
 import { JournalTab } from '@/tabs/Journal'
 import { PerformanceTab } from '@/tabs/Performance'
 import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
+import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
+import { useLiveStrategy } from '@/hooks/useLiveStrategy'
 import type { Pair, Tab } from '@/types'
 
 /** Below this width, the layout cannot display correctly — show a resize prompt. */
@@ -39,6 +41,10 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
   const [activeTab, setActiveTab] = useState<Tab>('live')
   const { price, change24h } = useKrakenWebSocket(pair)
 
+  // Hoisted so trades persist when switching away from the Live tab
+  const { candles } = useKrakenOhlc(pair)
+  const { signal, position, balance, trades } = useLiveStrategy(pair, candles)
+
   return (
     <div
       className="flex flex-col"
@@ -53,9 +59,11 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
       <TabBar active={activeTab} onChange={setActiveTab} />
 
       <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
-        {activeTab === 'live' && <LiveTab pair={pair} />}
+        {activeTab === 'live' && (
+          <LiveTab pair={pair} candles={candles} signal={signal} position={position} balance={balance} />
+        )}
         {activeTab === 'backtest' && <BacktestTab />}
-        {activeTab === 'journal' && <JournalTab />}
+        {activeTab === 'journal' && <JournalTab trades={trades} />}
         {activeTab === 'performance' && <PerformanceTab />}
       </main>
     </div>
