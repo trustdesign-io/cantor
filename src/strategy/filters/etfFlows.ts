@@ -25,16 +25,17 @@ export function hasNegativeStreak(flows: readonly EtfFlowEntry[], n = NEGATIVE_S
 }
 
 /**
- * Veto new long (BUY) positions when BTC ETF net flows have been negative for
- * three or more consecutive days.
+ * Veto any new position when BTC ETF net flows have been negative for three or
+ * more consecutive days.
  *
  * ⚠️  This filter is NOT wired into DEFAULT_FILTERS by default.
  *     Add it to your filter pipeline explicitly to opt in.
  *
- * Signal handling:
- *   BUY  — vetoed if streak detected
- *   SELL — always passes (streak is bearish context, shorting is consistent)
- *   HOLD — unreachable in filter context (detectSignal only calls filters on non-HOLD)
+ * ⚠️  Signal scope: the `FilterFn` contract does not expose the base signal,
+ *     so this filter vetoes both BUY and SELL signals during a streak. This is
+ *     a conservative stance — sustained institutional outflows create elevated
+ *     uncertainty in both directions. If you only want to suppress longs, place
+ *     this filter inside a BUY-guarded wrapper at the call site.
  *
  * Passes (ok: true) when flows are unavailable — fail-open prevents suppressing
  * valid signals due to a data outage.
@@ -50,11 +51,6 @@ export function isEtfFlowNegativeStreak(
 
   if (!etfFlows || etfFlows.length === 0) return { ok: true }
 
-  // Only veto BUY signals — SELL signals are consistent with outflow context
-  // The signal being filtered is available as the base signal in the detection
-  // pipeline, but the FilterFn contract only sees candles+context, not the signal.
-  // We apply the veto conservatively on all signals; callers can narrow by
-  // checking `baseSignal` before adding this filter.
   if (!hasNegativeStreak(etfFlows)) return { ok: true }
 
   return {

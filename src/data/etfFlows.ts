@@ -87,6 +87,7 @@ export async function fetchBtcEtfNetFlows(days = 14): Promise<readonly EtfFlowEn
     if (!res.ok) throw new Error(`ETF flows fetch failed: ${res.status}`)
 
     const json = await res.json()
+    if (!Array.isArray(json)) throw new Error('ETF flows: unexpected response format (not an array)')
     const all = parseResponse(json)
 
     // Return only the most recent `days` entries

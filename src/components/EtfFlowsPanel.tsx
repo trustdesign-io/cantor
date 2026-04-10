@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import type { EtfFlowEntry } from '@/data/etfFlows'
 
 interface EtfFlowsPanelProps {
@@ -13,14 +14,16 @@ function formatDate(dateStr: string): string {
 }
 
 export function EtfFlowsPanel({ flows }: EtfFlowsPanelProps) {
-  const labelStyle: React.CSSProperties = {
+  const labelStyle: CSSProperties = {
     fontSize: 11,
     color: 'var(--text-secondary)',
   }
 
-  if (flows === null) {
+  if (flows === null || flows.length === 0) {
     return (
       <div
+        role="figure"
+        aria-label="BTC ETF net flows — data unavailable"
         className="flex flex-col gap-1 px-3 py-2"
         style={{ borderTop: '1px solid var(--border)' }}
       >
@@ -28,23 +31,7 @@ export function EtfFlowsPanel({ flows }: EtfFlowsPanelProps) {
           BTC ETF Flows
         </span>
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-          Data unavailable
-        </span>
-      </div>
-    )
-  }
-
-  if (flows.length === 0) {
-    return (
-      <div
-        className="flex flex-col gap-1 px-3 py-2"
-        style={{ borderTop: '1px solid var(--border)' }}
-      >
-        <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-          BTC ETF Flows
-        </span>
-        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-          No data
+          {flows === null ? 'Data unavailable' : 'No data'}
         </span>
       </div>
     )
