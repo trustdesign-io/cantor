@@ -14,11 +14,9 @@ function ResizeGuard({ children }: { children: React.ReactNode }) {
   const [tooNarrow, setTooNarrow] = useState(window.innerWidth < MIN_VIEWPORT_WIDTH)
 
   useEffect(() => {
-    const observer = new ResizeObserver(() => {
-      setTooNarrow(window.innerWidth < MIN_VIEWPORT_WIDTH)
-    })
-    observer.observe(document.body)
-    return () => observer.disconnect()
+    const handler = () => setTooNarrow(window.innerWidth < MIN_VIEWPORT_WIDTH)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
   }, [])
 
   if (tooNarrow) {

@@ -38,15 +38,12 @@ export function Header({ pair, onPairChange, price, change24h }: HeaderProps) {
               key={p}
               onClick={() => onPairChange(p)}
               className={cn(
-                'px-3 py-1 text-xs font-mono rounded transition-colors',
-                p === pair
-                  ? 'font-medium'
-                  : 'hover:opacity-80'
+                'mono px-3 py-1 text-xs rounded transition-colors',
+                p === pair ? 'font-medium' : 'hover:opacity-80'
               )}
               style={{
                 backgroundColor: p === pair ? 'var(--accent)' : 'transparent',
                 color: p === pair ? 'var(--bg-base)' : 'var(--text-secondary)',
-                fontFamily: 'JetBrains Mono, monospace',
               }}
             >
               {p}
@@ -58,16 +55,15 @@ export function Header({ pair, onPairChange, price, change24h }: HeaderProps) {
       {/* Live price */}
       <div className="flex items-center gap-4">
         <span
-          className="text-lg font-medium"
-          style={{ color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}
+          className="mono text-lg font-medium"
+          style={{ color: 'var(--text-primary)' }}
         >
           {price !== null ? price.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
         </span>
         <span
-          className="text-sm"
+          className="mono text-sm"
           style={{
             color: change24h === null ? 'var(--text-secondary)' : changePositive ? 'var(--win)' : 'var(--loss)',
-            fontFamily: 'JetBrains Mono, monospace',
           }}
         >
           {change24h !== null
