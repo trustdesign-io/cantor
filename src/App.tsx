@@ -10,6 +10,7 @@ import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useLiveStrategy } from '@/hooks/useLiveStrategy'
 import { useFundingRate } from '@/hooks/useFundingRate'
 import { useFearGreed } from '@/hooks/useFearGreed'
+import { getActiveBlackout } from '@/data/macroCalendar'
 import type { FilterContext, Pair, Tab } from '@/types'
 
 /** Below this width, the layout cannot display correctly — show a resize prompt. */
@@ -41,6 +42,14 @@ function ResizeGuard({ children }: { children: React.ReactNode }) {
 
 function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair) => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('live')
+  const [macroBlackout, setMacroBlackout] = useState<string | null>(() => getActiveBlackout())
+
+  // Recheck macro blackout window every 30 seconds
+  useEffect(() => {
+    const id = setInterval(() => setMacroBlackout(getActiveBlackout()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+
   const { price, change24h } = useKrakenWebSocket(pair)
   const { fundingRate } = useFundingRate()
   const { fearGreed } = useFearGreed()
@@ -77,7 +86,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
       <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
         {activeTab === 'live' && (
-          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} />
+          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} />
         )}
         {activeTab === 'backtest' && <BacktestTab pair={pair} />}
         {activeTab === 'journal' && <JournalTab trades={trades} />}

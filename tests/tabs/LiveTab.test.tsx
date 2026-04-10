@@ -23,6 +23,7 @@ const DEFAULT_PROPS = {
   signalResult: { signal: 'HOLD' as const, baseSignal: 'HOLD' as const },
   position: null,
   balance: 10_000,
+  macroBlackout: null,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -44,5 +45,18 @@ describe('LiveTab', () => {
     expect(screen.getByText('No signals yet')).toBeInTheDocument()
     expect(screen.getByText('No open position')).toBeInTheDocument()
     expect(screen.getByText('10,000.00 USDT')).toBeInTheDocument()
+  })
+
+  it('does not show the blackout banner when macroBlackout is null', () => {
+    render(<LiveTab {...DEFAULT_PROPS} macroBlackout={null} />)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows the blackout banner with event name when macroBlackout is set', () => {
+    render(<LiveTab {...DEFAULT_PROPS} macroBlackout="CPI" />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toBeInTheDocument()
+    expect(alert).toHaveTextContent('CPI')
+    expect(alert).toHaveTextContent('Macro blackout active')
   })
 })
