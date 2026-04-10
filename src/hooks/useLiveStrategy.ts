@@ -44,8 +44,12 @@ export function useLiveStrategy(pair: Pair, candles: readonly Candle[]): LiveStr
   }
 
   useEffect(() => {
-    // Need at least slow period + 1 bars to detect a crossover (prev + curr)
+    // Need at least slow period + 1 bars to detect a crossover (prev + curr).
+    // Reset signal to HOLD when the candle buffer shrinks below the minimum
+    // (e.g. on reconnect without a pair change) to prevent a stale BUY/SELL
+    // from persisting when indicators can no longer be computed.
     if (candles.length < EMA_SLOW_PERIOD + 1) {
+      setSignal('HOLD')
       return
     }
 

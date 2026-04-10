@@ -31,6 +31,23 @@ const BUY_CLOSES = [
   84,  125,
 ]
 const BUY_CANDLES = makeCandlesFromCloses(BUY_CLOSES)
+
+/**
+ * 22-bar ascending zigzag that produces a verified death cross at bar 21.
+ * Mirror of BUY_CLOSES: prices generally climb bars 0-20, then drop sharply
+ * at bar 21 so EMA9 (faster) falls below EMA21 (slower).
+ *   EMA9[20]  > EMA21[20]  (EMA9 was above during the uptrend)
+ *   EMA9[21]  < EMA21[21]  (EMA9 reacts first to the sharp drop)
+ *   RSI[21]   > 30         (not oversold — death cross is confirmed)
+ *   → computeSignal returns 'SELL'
+ */
+const SELL_CLOSES = [
+  125, 123, 126, 122, 127, 120, 128, 117, 129, 115,
+  131, 113, 133, 110, 135, 107, 137, 105, 139, 103,
+  141, 100,
+]
+const SELL_CANDLES = makeCandlesFromCloses(SELL_CLOSES)
+
 const PAIR: Pair = 'XBT/USDT'
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -78,6 +95,36 @@ describe('useLiveStrategy', () => {
     expect(result.current.balance).toBe(INITIAL_BALANCE)
     expect(result.current.position).toBeNull()
     expect(result.current.trades).toHaveLength(0)
+  })
+
+  it('emits SELL signal on death cross (second BUY is ignored while position is open)', () => {
+    // First, open a position via BUY sequence
+    const { result, rerender } = renderHook(
+      ({ candles }: { candles: Candle[] }) => useLiveStrategy(PAIR, candles),
+      { initialProps: { candles: BUY_CANDLES } }
+    )
+    expect(result.current.signal).toBe('BUY')
+    expect(result.current.position).not.toBeNull()
+
+    // Now switch to a death-cross sequence — should close the position via SELL
+    rerender({ candles: SELL_CANDLES })
+    expect(result.current.signal).toBe('SELL')
+    // Position closed, balance restored to exit value
+    expect(result.current.position).toBeNull()
+    expect(result.current.trades).toHaveLength(1)
+    expect(result.current.balance).toBeGreaterThan(0)
+  })
+
+  it('resets signal to HOLD when candle count drops below minimum (stale signal prevention)', () => {
+    const { result, rerender } = renderHook(
+      ({ candles }: { candles: Candle[] }) => useLiveStrategy(PAIR, candles),
+      { initialProps: { candles: BUY_CANDLES } }
+    )
+    expect(result.current.signal).toBe('BUY')
+
+    // Candles shrink (e.g. reconnect buffer reset) without a pair change
+    rerender({ candles: makeCandlesFromCloses([100, 102]) })
+    expect(result.current.signal).toBe('HOLD')
   })
 
   it('updates signal when candles are updated with enough history', () => {
