@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
-import { computeSignal, RSI_OVERBOUGHT, RSI_OVERSOLD } from '@/strategy/signals'
+import { describe, it, expect, vi } from 'vitest'
+import { computeSignal, detectSignal, RSI_OVERBOUGHT, RSI_OVERSOLD } from '@/strategy/signals'
+import type { FilterFn } from '@/types'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -104,5 +105,76 @@ describe('computeSignal — HOLD', () => {
   it('returns HOLD when fewer than 2 bars are available', () => {
     expect(computeSignal([101], [100], [50])).toBe('HOLD')
     expect(computeSignal([], [], [])).toBe('HOLD')
+  })
+})
+
+// ── detectSignal — filter pipeline ────────────────────────────────────────────
+
+describe('detectSignal — empty filter list', () => {
+  it('passes base BUY signal through with no filters', () => {
+    const { emaFast, emaSlow, rsiValues } = arrays(99, 101, 100, 100, 50)
+    const result = detectSignal(emaFast, emaSlow, rsiValues, [], {}, [])
+    expect(result.signal).toBe('BUY')
+    expect(result.baseSignal).toBe('BUY')
+    expect(result.vetoedBy).toBeUndefined()
+    expect(result.reason).toBeUndefined()
+  })
+
+  it('passes base SELL signal through with no filters', () => {
+    const { emaFast, emaSlow, rsiValues } = arrays(101, 99, 100, 100, 50)
+    const result = detectSignal(emaFast, emaSlow, rsiValues, [], {}, [])
+    expect(result.signal).toBe('SELL')
+    expect(result.baseSignal).toBe('SELL')
+  })
+
+  it('passes HOLD through without calling filters', () => {
+    const filter = vi.fn((): ReturnType<FilterFn> => ({ ok: false, reason: 'should not run' }))
+    // EMA already above (no crossover) → HOLD base signal
+    const { emaFast, emaSlow, rsiValues } = arrays(105, 106, 100, 100, 50)
+    const result = detectSignal(emaFast, emaSlow, rsiValues, [], {}, [filter])
+    expect(result.signal).toBe('HOLD')
+    expect(result.baseSignal).toBe('HOLD')
+    expect(filter).not.toHaveBeenCalled()
+  })
+})
+
+describe('detectSignal — first filter vetoes', () => {
+  it('downgrades BUY to HOLD with reason when first filter returns ok: false', () => {
+    const { emaFast, emaSlow, rsiValues } = arrays(99, 101, 100, 100, 50)
+    function isFundingExtreme(): ReturnType<FilterFn> {
+      return { ok: false, reason: 'Funding extreme (+0.15% / 8h)' }
+    }
+    const result = detectSignal(emaFast, emaSlow, rsiValues, [], {}, [isFundingExtreme])
+    expect(result.signal).toBe('HOLD')
+    expect(result.baseSignal).toBe('BUY')
+    expect(result.vetoedBy).toBe('isFundingExtreme')
+    expect(result.reason).toBe('Funding extreme (+0.15% / 8h)')
+  })
+})
+
+describe('detectSignal — second filter vetoes when first passes', () => {
+  it('runs all filters in order and stops on the first veto', () => {
+    const { emaFast, emaSlow, rsiValues } = arrays(99, 101, 100, 100, 50)
+    function passFilter(): ReturnType<FilterFn> { return { ok: true } }
+    function isFearGreedExtreme(): ReturnType<FilterFn> {
+      return { ok: false, reason: 'Extreme fear (index=15)' }
+    }
+    const third = vi.fn((): ReturnType<FilterFn> => ({ ok: false, reason: 'should not run' }))
+    const result = detectSignal(emaFast, emaSlow, rsiValues, [], {}, [passFilter, isFearGreedExtreme, third])
+    expect(result.signal).toBe('HOLD')
+    expect(result.baseSignal).toBe('BUY')
+    expect(result.vetoedBy).toBe('isFearGreedExtreme')
+    expect(result.reason).toBe('Extreme fear (index=15)')
+    expect(third).not.toHaveBeenCalled()
+  })
+
+  it('passes signal through when all filters return ok: true', () => {
+    const { emaFast, emaSlow, rsiValues } = arrays(99, 101, 100, 100, 50)
+    const pass1: FilterFn = () => ({ ok: true })
+    const pass2: FilterFn = () => ({ ok: true })
+    const result = detectSignal(emaFast, emaSlow, rsiValues, [], {}, [pass1, pass2])
+    expect(result.signal).toBe('BUY')
+    expect(result.baseSignal).toBe('BUY')
+    expect(result.vetoedBy).toBeUndefined()
   })
 })

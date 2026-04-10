@@ -66,6 +66,7 @@ export function SignalLog({ events, position, balance }: SignalLogProps) {
             <tbody>
               {reversed.map((event, i) => {
                 const { label, color } = SIGNAL_STYLES[event.signal]
+                const isVetoed = event.signal === 'HOLD' && event.vetoReason !== undefined
                 return (
                   <tr
                     key={events.length - 1 - i}
@@ -82,6 +83,15 @@ export function SignalLog({ events, position, balance }: SignalLogProps) {
                     </td>
                     <td className="px-4 py-2 font-medium" style={{ color }}>
                       {label}
+                      {isVetoed && (
+                        <div
+                          className="text-xs font-normal mt-0.5"
+                          style={{ color: 'var(--text-secondary)' }}
+                          title={event.vetoReason}
+                        >
+                          vetoed: {event.vetoReason}
+                        </div>
+                      )}
                     </td>
                     <td
                       className="px-4 py-2 text-right tabular-nums"

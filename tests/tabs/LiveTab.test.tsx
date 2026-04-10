@@ -20,6 +20,7 @@ const DEFAULT_PROPS = {
   pair: 'XBT/USDT' as const,
   candles: [],
   signal: 'HOLD' as const,
+  signalResult: { signal: 'HOLD' as const, baseSignal: 'HOLD' as const },
   position: null,
   balance: 10_000,
 }
