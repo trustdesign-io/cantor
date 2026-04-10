@@ -53,6 +53,11 @@ describe('Performance', () => {
     expect(screen.getByText('No trades yet')).toBeInTheDocument()
   })
 
+  it('does not render metric labels in empty state', () => {
+    render(<Performance metrics={ZERO_METRICS} />)
+    expect(screen.queryByText('Total Return')).not.toBeInTheDocument()
+  })
+
   it('does not show "No trades yet" when there are trades', () => {
     render(<Performance metrics={POSITIVE_METRICS} />)
     expect(screen.queryByText('No trades yet')).not.toBeInTheDocument()
@@ -115,9 +120,27 @@ describe('Performance', () => {
     expect(returnValue.closest('[data-colour]')).toHaveAttribute('data-colour', 'loss')
   })
 
-  it('win rate value has win colour when > 0', () => {
+  it('win rate value has win colour when >= 0.5', () => {
     render(<Performance metrics={POSITIVE_METRICS} />)
     const winRateValue = screen.getByText('60.0%')
     expect(winRateValue.closest('[data-colour]')).toHaveAttribute('data-colour', 'win')
+  })
+
+  it('avgLoss value has loss colour when > 0', () => {
+    render(<Performance metrics={POSITIVE_METRICS} />)
+    const avgLossValue = screen.getByText('200.00')
+    expect(avgLossValue.closest('[data-colour]')).toHaveAttribute('data-colour', 'loss')
+  })
+
+  it('maxDrawdown value has loss colour when > 0', () => {
+    render(<Performance metrics={POSITIVE_METRICS} />)
+    const ddValue = screen.getByText('5.20%')
+    expect(ddValue.closest('[data-colour]')).toHaveAttribute('data-colour', 'loss')
+  })
+
+  it('zero totalReturnPct renders without + sign', () => {
+    render(<Performance metrics={{ ...POSITIVE_METRICS, totalReturnPct: 0 }} />)
+    expect(screen.getByText('0.00%')).toBeInTheDocument()
+    expect(screen.queryByText('+0.00%')).not.toBeInTheDocument()
   })
 })
