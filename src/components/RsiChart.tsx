@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import {
   createChart,
   LineSeries,
+  LineStyle,
 } from 'lightweight-charts'
 import type { ISeriesApi, Time } from 'lightweight-charts'
 import { rsi } from '@/indicators/rsi'
@@ -66,7 +67,7 @@ export function RsiChart({ candles }: RsiChartProps) {
       price: RSI_OVERBOUGHT,
       color: OVERBOUGHT_COLOR,
       lineWidth: 1,
-      lineStyle: 2, // LineStyle.Dashed
+      lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: `${RSI_OVERBOUGHT}`,
     })
@@ -75,7 +76,7 @@ export function RsiChart({ candles }: RsiChartProps) {
       price: RSI_OVERSOLD,
       color: OVERSOLD_COLOR,
       lineWidth: 1,
-      lineStyle: 2, // LineStyle.Dashed
+      lineStyle: LineStyle.Dashed,
       axisLabelVisible: true,
       title: `${RSI_OVERSOLD}`,
     })
