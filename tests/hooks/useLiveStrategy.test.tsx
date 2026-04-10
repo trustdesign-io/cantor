@@ -97,7 +97,7 @@ describe('useLiveStrategy', () => {
     expect(result.current.trades).toHaveLength(0)
   })
 
-  it('emits SELL signal on death cross (second BUY is ignored while position is open)', () => {
+  it('emits SELL signal on death cross and closes the open position', () => {
     // First, open a position via BUY sequence
     const { result, rerender } = renderHook(
       ({ candles }: { candles: Candle[] }) => useLiveStrategy(PAIR, candles),
