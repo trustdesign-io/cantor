@@ -19,7 +19,9 @@ jobs:
       # Rewrite SSH git URLs to HTTPS so the runner can install
       # @trustdesign/shared (a private GitHub package) using the token.
       - name: Configure git for private packages
-        run: git config --global url."https://x-access-token:${{ secrets.PROJECT_TOKEN }}@github.com/".insteadOf "git@github.com:"
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.PROJECT_TOKEN }}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://x-access-token:${{ secrets.PROJECT_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check
@@ -36,7 +38,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Configure git for private packages
-        run: git config --global url."https://x-access-token:${{ secrets.PROJECT_TOKEN }}@github.com/".insteadOf "git@github.com:"
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.PROJECT_TOKEN }}@github.com/".insteadOf "git@github.com:"
+          git config --global url."https://x-access-token:${{ secrets.PROJECT_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run build
