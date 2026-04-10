@@ -1,73 +1,29 @@
-# React + TypeScript + Vite
+# Cantor
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Cantor is a desktop paper-trading app for Bitcoin and Ethereum that runs an EMA crossover + RSI strategy against live Kraken market data. It shows real-time price and candlestick charts, fires buy/sell signals, tracks simulated trades, and lets you backtest the strategy over any historical date range — all without touching real money.
 
-Currently, two official plugins are available:
+## Running locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open `http://localhost:5173`. The app requires a viewport of at least 1280px wide.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## How the strategy works
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The strategy watches 1-minute OHLC candles from Kraken's WebSocket API and runs two checks on each new candle:
+
+1. **EMA crossover.** Two exponential moving averages are computed — a fast one (9 periods) and a slow one (21 periods). When the fast EMA crosses above the slow EMA (a "golden cross"), the strategy considers buying. When it crosses below (a "death cross"), it considers selling.
+
+2. **RSI filter.** The Relative Strength Index (14 periods) must be between 30 and 70 for the signal to be acted on. This prevents entering a trade when the price is already in an extreme overbought or oversold condition.
+
+When both conditions are met, the paper trader executes a simulated order at the current market price using 100% of the available balance. All positions and trade history are in-memory and reset on page refresh.
+
+The Backtest tab runs the same strategy against historical 60-minute candles fetched from Kraken's REST API for any date range you choose.
+
+## Docs
+
+- [docs/glossary.md](docs/glossary.md) — plain-language definitions for EMA, RSI, paper trading, backtesting, Sharpe ratio, drawdown, win rate, position sizing, and crossover signals
+- [PRD.md](PRD.md) — product requirements and design decisions
