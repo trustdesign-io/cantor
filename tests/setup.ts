@@ -9,3 +9,9 @@ if (typeof ResizeObserver === 'undefined') {
     disconnect() {}
   }
 }
+
+// jsdom does not implement scrollIntoView — stub it globally so components
+// that use scroll-to-bottom (CommentatorPanel) can mount in tests.
+if (!window.HTMLElement.prototype.scrollIntoView) {
+  window.HTMLElement.prototype.scrollIntoView = function () {}
+}
