@@ -9,6 +9,7 @@ import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
 import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useLiveStrategy } from '@/hooks/useLiveStrategy'
 import { useFundingRate } from '@/hooks/useFundingRate'
+import { useFearGreed } from '@/hooks/useFearGreed'
 import type { FilterContext, Pair, Tab } from '@/types'
 
 /** Below this width, the layout cannot display correctly — show a resize prompt. */
@@ -42,15 +43,17 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
   const [activeTab, setActiveTab] = useState<Tab>('live')
   const { price, change24h } = useKrakenWebSocket(pair)
   const { fundingRate } = useFundingRate()
+  const { fearGreed } = useFearGreed()
 
   // Stable FilterContext — only rebuilds when the underlying values change.
   // Passing an inline object literal would recreate it every render, causing
   // the signalResult memo in useLiveStrategy to re-run unnecessarily.
   const filterContext = useMemo<FilterContext>(
     () => ({
-      fundingRate: fundingRate ?? undefined,
+      fundingRate: fundingRate === null ? undefined : fundingRate,
+      fearGreedIndex: fearGreed === null ? undefined : fearGreed.value,
     }),
-    [fundingRate]
+    [fundingRate, fearGreed]
   )
 
   // Hoisted so trades persist when switching away from the Live tab
@@ -68,6 +71,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
         price={price}
         change24h={change24h}
         fundingRate={fundingRate}
+        fearGreed={fearGreed}
       />
       <TabBar active={activeTab} onChange={setActiveTab} />
 

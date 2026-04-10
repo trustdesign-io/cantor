@@ -1,5 +1,6 @@
 import type { Candle, FilterContext, FilterFn, Signal, SignalResult } from '@/types'
 import { isFundingExtreme } from '@/strategy/filters/funding'
+import { isFearGreedExtreme } from '@/strategy/filters/fearGreed'
 
 /** EMA fast period — reacts quickly to price changes, captures short-term momentum */
 export const EMA_FAST_PERIOD = 9
@@ -83,9 +84,11 @@ export function computeSignal(
  * Wired into the live strategy and backtest via detectSignal().
  *
  * Phase 8.1: isFundingExtreme — veto on crowded-side perpetual funding.
+ * Phase 8.2: isFearGreedExtreme — veto on extreme sentiment (>80 or <20).
  */
 export const DEFAULT_FILTERS: readonly FilterFn[] = [
   isFundingExtreme,
+  isFearGreedExtreme,
 ]
 
 /**
