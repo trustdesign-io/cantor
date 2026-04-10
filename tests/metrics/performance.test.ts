@@ -16,6 +16,7 @@ function makeTrade(overrides: Partial<Trade>): Trade {
     pnlPercent: 5,
     durationMs: 3_600_000,
     signalReason: 'test',
+    sizeMultiplier: 1.0,
     ...overrides,
   }
 }

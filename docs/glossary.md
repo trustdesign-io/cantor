@@ -80,7 +80,27 @@ How much of the available capital is deployed into each trade.
 
 **Why it matters:** Deploying too much on a single trade amplifies both gains and losses. Most risk management frameworks limit each trade to a small percentage of total capital.
 
-**In Cantor:** The paper trader is simplified — it deploys 100% of the available balance into each trade. There is no fractional sizing, risk-per-trade limit, or Kelly criterion. This is a deliberate simplification to keep the system easy to understand.
+**In Cantor:** A size multiplier is computed for each BUY or SELL signal using `sizeForSignal()` in `src/strategy/sizing.ts`. The multiplier scales the fraction of the current balance deployed. With a multiplier of 1.0 (the default when no corroborating signals are present), the full balance is deployed — identical to the original all-in behaviour. The multiplier is clamped to [0.25, 2.0] regardless of how many signals compose. See also: [Size multiplier](#size-multiplier), [Kelly criterion](#kelly-criterion).
+
+---
+
+## Size multiplier
+
+A numeric factor in the range [0.25, 2.0] that scales the fraction of available balance deployed on each trade.
+
+**Why it matters:** It allows the strategy to be more aggressive when multiple corroborating signals agree, and more conservative when signals are ambiguous or adverse, without changing the entry/exit logic.
+
+**In Cantor:** Computed by `sizeForSignal(signal, context)`. Component multipliers (funding rate, Fear & Greed) are composed by multiplication, then clamped. A value of 1.0 means the full available balance is deployed. Values above 1.0 are reserved for future leverage-aware implementations; the paper trader caps effective deployment at 1.0× balance.
+
+---
+
+## Kelly criterion
+
+A mathematical formula for optimal bet sizing: deploy the fraction of capital equal to (edge / odds). Maximises long-run geometric growth while theoretically preventing ruin.
+
+**Why it matters:** Kelly-sized bets outperform fixed-fraction sizing when the win rate and win/loss ratio are accurately estimated. However, Kelly is highly sensitive to estimation errors — even small overestimates of edge result in over-sizing and large drawdowns. In practice, a half-Kelly or quarter-Kelly fraction is commonly used.
+
+**In Cantor:** The position sizing layer is *not* a Kelly implementation. Kelly requires a statistically significant trade history to estimate win rate and win/loss ratio reliably. The multipliers in `sizing.ts` are heuristic and should be treated as directional signals only until sufficient live trade data is available.
 
 ---
 

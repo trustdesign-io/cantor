@@ -44,6 +44,7 @@ const COMPLETED_TRADE: Trade = {
   pnlAbsolute: 1_000,
   pnlPercent: 10,
   signalReason: 'EMA 9 crossed above EMA 21, RSI=45',
+  sizeMultiplier: 1.0,
 }
 
 const STUB_METRICS: PerformanceMetrics = {

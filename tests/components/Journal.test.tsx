@@ -17,6 +17,7 @@ const WIN_TRADE: Trade = {
   pnlPercent: 5,
   durationMs: 3_600_000,
   signalReason: 'EMA 9/21 crossover, exit price 42000.00',
+  sizeMultiplier: 1.0,
 }
 
 const LOSS_TRADE: Trade = {
@@ -30,6 +31,7 @@ const LOSS_TRADE: Trade = {
   pnlPercent: -10,
   durationMs: 7_200_000,
   signalReason: 'EMA 9/21 crossover, exit price 1800.00',
+  sizeMultiplier: 1.0,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

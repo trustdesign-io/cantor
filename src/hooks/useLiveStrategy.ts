@@ -3,6 +3,7 @@ import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
 import { detectSignal, EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
 import { onSignal, INITIAL_STATE } from '@/strategy/paperTrader'
+import { sizeForSignal } from '@/strategy/sizing'
 import type { Candle, FilterContext, Pair, Signal, SignalResult } from '@/types'
 import type { PaperTraderState } from '@/strategy/paperTrader'
 
@@ -15,12 +16,12 @@ export interface LiveStrategyState {
 }
 
 type TraderAction =
-  | { type: 'signal'; signal: Exclude<Signal, 'HOLD'>; price: number; time: number; pair: Pair }
+  | { type: 'signal'; signal: Exclude<Signal, 'HOLD'>; price: number; time: number; pair: Pair; sizeMultiplier: number }
   | { type: 'reset' }
 
 function traderReducer(state: PaperTraderState, action: TraderAction): PaperTraderState {
   if (action.type === 'reset') return INITIAL_STATE
-  return onSignal(state, action.signal, action.price, action.time, action.pair)
+  return onSignal(state, action.signal, action.price, action.time, action.pair, action.sizeMultiplier)
 }
 
 /**
@@ -31,7 +32,7 @@ function traderReducer(state: PaperTraderState, action: TraderAction): PaperTrad
 const EMPTY_CONTEXT: FilterContext = {}
 
 /**
- * Wires OHLC candles through indicators → signal → filter pipeline → paper trader.
+ * Wires OHLC candles through indicators → signal → filter pipeline → sizing → paper trader.
  *
  * signalResult is derived state computed via useMemo (no effect needed).
  * Trader state is accumulated via useReducer, updated via effect dispatch.
@@ -79,8 +80,9 @@ export function useLiveStrategy(
     if (signal === 'HOLD') return
     const last = candles[candles.length - 1]
     if (!last) return
-    dispatch({ type: 'signal', signal, price: last.close, time: last.time * 1000, pair })
-  }, [signal, pair, candles])
+    const sizeMultiplier = sizeForSignal(signal, context)
+    dispatch({ type: 'signal', signal, price: last.close, time: last.time * 1000, pair, sizeMultiplier })
+  }, [signal, pair, candles, context])
 
   return {
     signal,

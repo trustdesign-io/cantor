@@ -32,6 +32,7 @@ const OPEN_POSITION: Position = {
   entryTime: 1_700_000_060_000,
   size: 0.238095,
   unrealisedPnl: 238.10,
+  sizeMultiplier: 1.0,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
