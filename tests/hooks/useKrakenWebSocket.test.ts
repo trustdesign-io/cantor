@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
+import { krakenWsManager } from '@/lib/krakenWsManager'
 import type { Pair } from '@/types'
 
 // ── Mock WebSocket ────────────────────────────────────────────────────────────
@@ -64,9 +65,11 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.stubGlobal('WebSocket', MockWebSocket)
   MockWebSocket.lastInstance = null
+  krakenWsManager._reset()
 })
 
 afterEach(() => {
+  krakenWsManager._reset()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
