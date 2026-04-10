@@ -11,6 +11,31 @@ export const OLLAMA_BASE_URL = 'http://localhost:11434'
 /** Default model to use for commentary and teaching. Must be pulled via `ollama pull <model>`. */
 export const OLLAMA_MODEL = 'llama3.2:3b'
 
+/**
+ * Fetch the list of models currently installed in the local Ollama instance.
+ * Returns an empty array on any error (Ollama unreachable, parse failure, network).
+ */
+export async function listModels(): Promise<string[]> {
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`)
+    if (!response.ok) return []
+    const data = await response.json() as unknown
+    if (
+      typeof data !== 'object' ||
+      data === null ||
+      !Array.isArray((data as Record<string, unknown>).models)
+    ) {
+      return []
+    }
+    const models = (data as { models: unknown[] }).models
+    return models
+      .filter((m): m is { name: string } => typeof (m as Record<string, unknown>)?.name === 'string')
+      .map((m) => m.name)
+  } catch {
+    return []
+  }
+}
+
 export interface StreamChatOptions {
   model?: string
   system: string

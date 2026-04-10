@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
-import { streamChat, OLLAMA_MODEL } from '@/lib/ollama'
+import { streamChat } from '@/lib/ollama'
+import { getPreferredModel } from '@/lib/modelPreference'
 import { buildTeachSystemPrompt, getTeachContext } from '@/lib/teachTopics'
 import type { TeachTopicId, TeachTopic } from '@/lib/teachTopics'
 
@@ -65,6 +66,7 @@ export function useTeachMe(): UseTeachMeReturn {
     let full = ''
 
     streamChat({
+      model: getPreferredModel(),
       system: buildTeachSystemPrompt(t.label),
       user: userContext,
       signal: controller.signal,
@@ -83,5 +85,5 @@ export function useTeachMe(): UseTeachMeReturn {
     })
   }, [])
 
-  return { isOpen, topic, contextLabel, entry, model: OLLAMA_MODEL, open, close }
+  return { isOpen, topic, contextLabel, entry, model: getPreferredModel(), open, close }
 }

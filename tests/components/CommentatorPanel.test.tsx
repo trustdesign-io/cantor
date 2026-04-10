@@ -9,9 +9,18 @@ vi.mock('@/hooks/useCommentator', () => ({
   useCommentator: vi.fn(),
 }))
 
+// ── Mock useOllamaModels so no real network calls are made ────────────────────
+
+vi.mock('@/hooks/useOllamaModels', () => ({
+  useOllamaModels: vi.fn(),
+}))
+
 import { useCommentator } from '@/hooks/useCommentator'
+import { useOllamaModels } from '@/hooks/useOllamaModels'
 import type { CommentaryEntry } from '@/types/commentary'
+
 const mockedUseCommentator = vi.mocked(useCommentator)
+const mockedUseOllamaModels = vi.mocked(useOllamaModels)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,16 +55,25 @@ function makeEntry(overrides: Partial<CommentaryEntry> = {}): CommentaryEntry {
 
 describe('CommentatorPanel', () => {
   beforeEach(() => {
-    const clearMock = vi.fn()
+    localStorage.clear()
+
     mockedUseCommentator.mockReturnValue({
       entries: [],
-      clearEntries: clearMock,
+      clearEntries: vi.fn(),
       model: 'llama3.2:3b',
+    })
+
+    mockedUseOllamaModels.mockReturnValue({
+      models: ['llama3.2:3b', 'qwen2.5:7b'],
+      loading: false,
+      error: false,
+      refetch: vi.fn(),
     })
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
   })
 
   it('renders empty state when there are no entries', () => {
@@ -68,11 +86,36 @@ describe('CommentatorPanel', () => {
     expect(screen.getByText(/Live Commentary/i)).toBeInTheDocument()
   })
 
-  it('renders a model badge in the header', () => {
+  it('renders a model dropdown in the header', () => {
     render(<CommentatorPanel snapshot={makeSnapshot()} />)
-    // Badge is a <span> with the model name — use getAllByText and check at least one is the badge
-    const matches = screen.getAllByText('llama3.2:3b')
-    expect(matches.length).toBeGreaterThan(0)
+    const select = screen.getByRole('combobox', { name: /ollama model/i })
+    expect(select).toBeInTheDocument()
+  })
+
+  it('shows available models in the dropdown', () => {
+    render(<CommentatorPanel snapshot={makeSnapshot()} />)
+    expect(screen.getByRole('option', { name: 'llama3.2:3b' })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: 'qwen2.5:7b' })).toBeInTheDocument()
+  })
+
+  it('selecting a new model persists to localStorage', () => {
+    render(<CommentatorPanel snapshot={makeSnapshot()} />)
+    const select = screen.getByRole('combobox', { name: /ollama model/i })
+    fireEvent.change(select, { target: { value: 'qwen2.5:7b' } })
+    expect(localStorage.getItem('cantor.ollamaModel')).toBe('qwen2.5:7b')
+  })
+
+  it('dropdown is disabled when Ollama is unreachable', () => {
+    mockedUseOllamaModels.mockReturnValue({
+      models: [],
+      loading: false,
+      error: true,
+      refetch: vi.fn(),
+    })
+
+    render(<CommentatorPanel snapshot={makeSnapshot()} />)
+    const select = screen.getByRole('combobox', { name: /ollama model/i })
+    expect(select).toBeDisabled()
   })
 
   it('renders a completed entry with label and text', () => {
@@ -95,7 +138,6 @@ describe('CommentatorPanel', () => {
     })
 
     render(<CommentatorPanel snapshot={makeSnapshot()} />)
-    // The text content should appear even while streaming
     expect(screen.getByText('Streaming...')).toBeInTheDocument()
   })
 
@@ -108,7 +150,6 @@ describe('CommentatorPanel', () => {
 
     render(<CommentatorPanel snapshot={makeSnapshot()} />)
     expect(screen.getByText('Commentary unavailable — is Ollama running on localhost:11434?')).toBeInTheDocument()
-    // Warning icon should be present in the label area
     expect(screen.getByText('⚠', { exact: false })).toBeInTheDocument()
   })
 

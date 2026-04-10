@@ -1,6 +1,8 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 import { StreamingText } from '@/components/StreamingText'
 import { useCommentator } from '@/hooks/useCommentator'
+import { useOllamaModels } from '@/hooks/useOllamaModels'
+import { getPreferredModel, setPreferredModel } from '@/lib/modelPreference'
 import type { DashboardSnapshot } from '@/types/commentary'
 
 /** Scrolls to the bottom sentinel unless the user has scrolled up more than this */
@@ -20,11 +22,18 @@ function formatTime(timestampMs: number): string {
 }
 
 export function CommentatorPanel({ snapshot }: CommentatorPanelProps) {
-  const { entries, clearEntries, model } = useCommentator(snapshot)
+  const { entries, clearEntries } = useCommentator(snapshot)
+  const { models, loading: modelsLoading, error: ollamaUnreachable, refetch: refetchModels } = useOllamaModels()
+  const [selectedModel, setSelectedModel] = useState<string>(() => getPreferredModel())
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
+
+  const handleModelChange = useCallback((name: string) => {
+    setPreferredModel(name)
+    setSelectedModel(name)
+  }, [])
 
   // Track whether the user has scrolled up away from the bottom
   const onScroll = useCallback(() => {
@@ -64,18 +73,35 @@ export function CommentatorPanel({ snapshot }: CommentatorPanelProps) {
           Live Commentary
         </span>
         <div className="flex items-center gap-2">
-          {/* Model badge */}
-          <span
-            className="text-xs px-1.5 py-0.5 rounded"
+          {/* Model picker */}
+          <select
+            value={selectedModel}
+            onChange={(e) => handleModelChange(e.target.value)}
+            onFocus={refetchModels}
+            disabled={ollamaUnreachable || modelsLoading}
+            aria-label="Ollama model"
+            title={ollamaUnreachable ? 'Ollama unreachable — showing last saved model' : undefined}
             style={{
               color: 'var(--text-secondary)',
               background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
               fontFamily: 'JetBrains Mono, monospace',
               fontSize: 10,
+              padding: '1px 4px',
+              cursor: ollamaUnreachable ? 'not-allowed' : 'pointer',
+              opacity: ollamaUnreachable ? 0.6 : 1,
             }}
           >
-            {model}
-          </span>
+            {/* Always show the current selection even if models list is empty/loading */}
+            {models.length === 0 ? (
+              <option value={selectedModel}>{selectedModel}</option>
+            ) : (
+              models.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))
+            )}
+          </select>
           {/* Clear button */}
           <button
             onClick={clearEntries}

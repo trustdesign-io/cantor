@@ -306,3 +306,14 @@ An on-demand explanation feature available on every educational element in the d
 **Why it matters:** Rather than requiring the user to leave the app and search for definitions, "teach me" surfaces just-in-time context: what the element is, what the current value means, and why it matters for trading decisions.
 
 **In Cantor:** Powered by the same Ollama client as Live Commentary. Each teachable element has a `TeachTopic` definition in `src/lib/teachTopics.ts`. Explanations are cached in memory per (topic, value) pair for the duration of the page session — reopening the same modal with the same value returns the cached response immediately without a second LLM call. Requires Ollama running on `localhost:11434` with `llama3.2:3b` pulled.
+
+
+---
+
+## Model picker
+
+A dropdown in the Live Commentary panel header that lets you switch between any Ollama model currently installed on your machine, without editing code or restarting the app.
+
+**Why it matters:** Different local models vary in output quality, speed, and verbosity. The model picker lets you compare `llama3.2:3b` (fast, compact) against `qwen2.5:7b` (more detailed) on the same live event stream with a single click.
+
+**In Cantor:** The selected model is persisted to `localStorage` (key `cantor.ollamaModel`) so your choice survives page refreshes. If Ollama is unreachable, the picker is disabled and shows a tooltip indicating that the last saved model is still in use. The model list is fetched from Ollama's `/api/tags` endpoint and refreshed each time you open the dropdown. Changing the model applies to new commentary events only — existing entries are not re-generated.
