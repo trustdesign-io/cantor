@@ -37,7 +37,7 @@ export type Signal = 'BUY' | 'SELL' | 'HOLD'
  * Only include fields that are actually read by at least one registered filter.
  */
 export interface FilterContext {
-  /** Average perpetual funding rate across exchanges (percent per 8 hours) */
+  /** Average perpetual funding rate across exchanges as a decimal per 8-hour period (e.g. 0.001 = 0.1%) */
   fundingRate?: number
   /** Crypto Fear & Greed Index 0–100 */
   fearGreedIndex?: number

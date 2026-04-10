@@ -1,4 +1,5 @@
 import type { Candle, FilterContext, FilterFn, Signal, SignalResult } from '@/types'
+import { isFundingExtreme } from '@/strategy/filters/funding'
 
 /** EMA fast period — reacts quickly to price changes, captures short-term momentum */
 export const EMA_FAST_PERIOD = 9
@@ -81,9 +82,11 @@ export function computeSignal(
  * Each filter is a pure synchronous function — no network calls.
  * Wired into the live strategy and backtest via detectSignal().
  *
- * Starts empty (Phase 7.1). Populated by individual filter tickets (8.1+).
+ * Phase 8.1: isFundingExtreme — veto on crowded-side perpetual funding.
  */
-export const DEFAULT_FILTERS: readonly FilterFn[] = []
+export const DEFAULT_FILTERS: readonly FilterFn[] = [
+  isFundingExtreme,
+]
 
 /**
  * Compute the trading signal and run it through an ordered filter pipeline.

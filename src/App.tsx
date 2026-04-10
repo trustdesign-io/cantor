@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Header } from '@/components/Header'
 import { TabBar } from '@/components/TabBar'
 import { LiveTab } from '@/tabs/Live'
@@ -8,7 +8,8 @@ import { PerformanceTab } from '@/tabs/Performance'
 import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
 import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useLiveStrategy } from '@/hooks/useLiveStrategy'
-import type { Pair, Tab } from '@/types'
+import { useFundingRate } from '@/hooks/useFundingRate'
+import type { FilterContext, Pair, Tab } from '@/types'
 
 /** Below this width, the layout cannot display correctly — show a resize prompt. */
 const MIN_VIEWPORT_WIDTH = 1280
@@ -40,10 +41,21 @@ function ResizeGuard({ children }: { children: React.ReactNode }) {
 function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair) => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('live')
   const { price, change24h } = useKrakenWebSocket(pair)
+  const { fundingRate } = useFundingRate()
+
+  // Stable FilterContext — only rebuilds when the underlying values change.
+  // Passing an inline object literal would recreate it every render, causing
+  // the signalResult memo in useLiveStrategy to re-run unnecessarily.
+  const filterContext = useMemo<FilterContext>(
+    () => ({
+      fundingRate: fundingRate ?? undefined,
+    }),
+    [fundingRate]
+  )
 
   // Hoisted so trades persist when switching away from the Live tab
   const { candles } = useKrakenOhlc(pair)
-  const { signal, signalResult, position, balance, trades } = useLiveStrategy(pair, candles)
+  const { signal, signalResult, position, balance, trades } = useLiveStrategy(pair, candles, filterContext)
 
   return (
     <div
@@ -55,6 +67,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
         onPairChange={onPairChange}
         price={price}
         change24h={change24h}
+        fundingRate={fundingRate}
       />
       <TabBar active={activeTab} onChange={setActiveTab} />
 
