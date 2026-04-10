@@ -43,13 +43,21 @@ export interface FilterContext {
   fearGreedIndex?: number
 }
 
-/** Return value from a signal filter function */
-export interface FilterResult {
-  ok: boolean
-  reason?: string
-}
+/**
+ * Return value from a signal filter function.
+ * A discriminated union: reason is required when ok is false so veto log
+ * entries are always human-readable.
+ */
+export type FilterResult =
+  | { ok: true }
+  | { ok: false; reason: string }
 
-/** A signal filter — pure, synchronous, no network calls */
+/**
+ * A signal filter — pure, synchronous, no network calls.
+ * Must be a named function declaration or named function expression (not an
+ * anonymous arrow function) so `filter.name` produces a useful label in the
+ * filter contribution report (Phase 9).
+ */
 export type FilterFn = (candles: readonly Candle[], context: FilterContext) => FilterResult
 
 /** Extended result from detectSignal including base signal and veto info */

@@ -24,17 +24,28 @@ function traderReducer(state: PaperTraderState, action: TraderAction): PaperTrad
 }
 
 /**
+ * Stable empty context for callers that have not yet provided filter data.
+ * A module-level constant avoids creating a new object on every render,
+ * which would cause the signalResult memo to re-run unnecessarily.
+ */
+const EMPTY_CONTEXT: FilterContext = {}
+
+/**
  * Wires OHLC candles through indicators → signal → filter pipeline → paper trader.
  *
  * signalResult is derived state computed via useMemo (no effect needed).
  * Trader state is accumulated via useReducer, updated via effect dispatch.
  *
  * Pair changes reset all state to the initial values.
+ *
+ * @param context - Pre-fetched filter data (funding rate, fear & greed, etc.).
+ *   Callers must pass a stable reference (useMemo/useRef) to avoid unnecessary
+ *   re-evaluation of the signal pipeline on every render.
  */
 export function useLiveStrategy(
   pair: Pair,
   candles: readonly Candle[],
-  context: FilterContext = {}
+  context: FilterContext = EMPTY_CONTEXT
 ): LiveStrategyState {
   const [currentPair, setCurrentPair] = useState(pair)
   const [traderState, dispatch] = useReducer(traderReducer, INITIAL_STATE)
@@ -58,8 +69,7 @@ export function useLiveStrategy(
       candles,
       context,
     )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles])
+  }, [candles, context])
 
   const signal = signalResult.signal
 
