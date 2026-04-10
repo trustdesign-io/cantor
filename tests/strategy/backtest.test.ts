@@ -44,12 +44,11 @@ describe('runBacktest', () => {
   })
 
   it('returns empty trades when no crossover signal occurs', () => {
-    // 22 candles with flat/random prices — no clear crossover
-    const flat = Array.from({ length: 22 }, (_, i) => 100 + (i % 3))
+    // All-identical prices: both EMAs are always equal, so no crossover is possible
+    const flat = Array.from({ length: 22 }, () => 100)
     const result = runBacktest(makeCandlesFromCloses(flat), 'XBT/USDT')
-    // No assertion on trade count (depends on signal) but must not throw
-    expect(Array.isArray(result.trades)).toBe(true)
-    expect(typeof result.finalBalance).toBe('number')
+    expect(result.trades).toHaveLength(0)
+    expect(result.finalBalance).toBe(INITIAL_BALANCE)
   })
 
   it('opens a position on BUY signal', () => {
@@ -68,9 +67,8 @@ describe('runBacktest', () => {
   it('returns trade with correct pair', () => {
     const combinedCloses = [...BUY_CLOSES, ...DECLINING_CLOSES]
     const result = runBacktest(makeCandlesFromCloses(combinedCloses), 'XBT/USDT')
-    if (result.trades.length > 0) {
-      expect(result.trades[0].pair).toBe('XBT/USDT')
-    }
+    expect(result.trades.length).toBeGreaterThan(0)
+    expect(result.trades[0].pair).toBe('XBT/USDT')
   })
 
   it('handles 720 candles without throwing', () => {

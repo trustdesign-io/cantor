@@ -8,7 +8,13 @@ import type { PaperTraderState } from '@/strategy/paperTrader'
 export interface BacktestResult {
   /** Completed trades produced by the strategy (oldest first). */
   trades: readonly Trade[]
-  /** Account balance at the end of the run. Includes any open position value at last-seen price. */
+  /**
+   * Cash balance at the end of the run.
+   * If a position is still open when the series ends, this is 0 because all
+   * capital has been deployed into that position. The open position is not
+   * marked-to-market; callers that need mark-to-market value should check
+   * `trades` and the last candle's close separately.
+   */
   finalBalance: number
 }
 
@@ -25,9 +31,9 @@ export interface BacktestResult {
  *
  * @param candles - Full historical candle series (oldest first). Not mutated.
  * @param pair    - Trading pair (used to label completed trades).
- * @returns       - BacktestResult with completed trades and final balance.
- *                  If a position is still open at the end, finalBalance is 0
- *                  (the balance was deployed into the position).
+ * @returns       - BacktestResult with completed trades and cash balance.
+ *                  finalBalance is 0 when a position is still open at the end
+ *                  (all capital has been deployed; see BacktestResult.finalBalance).
  */
 export function runBacktest(candles: readonly Candle[], pair: Pair): BacktestResult {
   const MIN_CANDLES = EMA_SLOW_PERIOD + 1
@@ -36,7 +42,7 @@ export function runBacktest(candles: readonly Candle[], pair: Pair): BacktestRes
     return { trades: [], finalBalance: INITIAL_STATE.balance }
   }
 
-  let state: PaperTraderState = INITIAL_STATE
+  let state: PaperTraderState = { ...INITIAL_STATE, trades: [] }
 
   for (let i = MIN_CANDLES - 1; i < candles.length; i++) {
     // Compute indicators over all candles up to and including this bar
