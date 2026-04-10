@@ -289,6 +289,16 @@ The eight event types are:
 
 ---
 
+## Timeframe / OHLC interval
+
+The duration of each candle in a price chart. A 1-minute (1m) interval means each candle represents one minute of trading; a 1-hour (1h) interval means each candle represents one hour. Longer intervals smooth out short-term noise and provide a wider historical view.
+
+**Why it matters:** The EMA crossover strategy's signal quality depends heavily on the timeframe. On 1m candles, most crossovers are microstructure noise — the EMAs respond to very small price moves. On 5m or 15m candles, crossovers reflect more meaningful momentum shifts. On 1h candles, Kraken's 720-candle REST limit covers approximately 30 days of history instead of 12 hours.
+
+**In Cantor:** The interval picker in the header lets you switch between 1m, 5m, 15m, 1h, and 4h without restarting the app. Changing the interval resets the candle buffer and signal log (history from a different timeframe is meaningless in context). The backtest tab uses its own separate interval control. Default is 1m for backwards compatibility.
+
+---
+
 ## Teach me
 
 An on-demand explanation feature available on every educational element in the dashboard. Clicking the `(?)` icon next to a value opens a modal that streams a ~150-word plain-English explanation from the local LLM, tailored to the element's current value.

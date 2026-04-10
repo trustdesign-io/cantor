@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
 import { krakenWsManager } from '@/lib/krakenWsManager'
-import type { Candle, Pair } from '@/types'
+import type { Candle, OhlcInterval, Pair } from '@/types'
 
 // ── Mock REST backfill ────────────────────────────────────────────────────────
 // The hook now calls fetchOHLC() on mount to backfill history before the WS
@@ -69,17 +69,22 @@ class MockWebSocket {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Build a Kraken v1 OHLC message: [channelID, payload, "ohlc-1", pair] */
+/**
+ * Build a Kraken v1 OHLC message: [channelID, payload, "ohlc-1", pair]
+ * Kraken sends time fields as strings (microsecond-precise), so position 0
+ * is String(time) to match the z.string() schema.
+ */
 function ohlcMessage(
   pair: string,
   time: number,
-  opts: { open?: string; high?: string; low?: string; close?: string; volume?: string } = {}
+  opts: { open?: string; high?: string; low?: string; close?: string; volume?: string } = {},
+  interval = 1
 ) {
   return [
     42,
     [
-      time,
-      String(time + 60),       // etime
+      String(time),              // 0: begin time as string (Kraken WS v1 format)
+      String(time + interval * 60), // 1: end time as string
       opts.open ?? '45000.00',
       opts.high ?? '45100.00',
       opts.low ?? '44900.00',
@@ -88,7 +93,7 @@ function ohlcMessage(
       opts.volume ?? '1.5',
       50,                      // count
     ],
-    'ohlc-1',
+    `ohlc-${interval}`,
     pair,
   ]
 }
@@ -114,17 +119,17 @@ afterEach(() => {
 
 describe('useKrakenOhlc', () => {
   it('connects to the Kraken WebSocket URL on mount', () => {
-    renderHook(() => useKrakenOhlc('XBT/USDT'))
+    renderHook(() => useKrakenOhlc('XBT/USDT', 1))
     expect(MockWebSocket.lastInstance?.url).toBe('wss://ws.kraken.com/')
   })
 
   it('starts with empty candles and disconnected state', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
     expect(result.current).toEqual({ candles: [], connected: false })
   })
 
   it('sets connected: true and sends ohlc subscribe after onopen fires', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
@@ -141,14 +146,14 @@ describe('useKrakenOhlc', () => {
   })
 
   it('subscribes to the correct pair when ETH/USDT is used', () => {
-    renderHook(() => useKrakenOhlc('ETH/USDT'))
+    renderHook(() => useKrakenOhlc('ETH/USDT', 1))
     act(() => { MockWebSocket.lastInstance!.simulateOpen() })
     const sent = JSON.parse(MockWebSocket.lastInstance!.sentMessages[0]) as { pair: string[] }
     expect(sent.pair).toEqual(['ETH/USDT'])
   })
 
   it('parses an OHLC message into a Candle and appends it', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
@@ -171,7 +176,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('updates the current candle in place when the same timestamp arrives', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
@@ -192,7 +197,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('appends a new candle when the timestamp changes', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
@@ -206,7 +211,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('caps the buffer at MAX_CANDLES (500) by dropping the oldest candle', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
@@ -225,7 +230,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('ignores non-ohlc messages (ticker, heartbeat)', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
@@ -242,7 +247,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('sets connected: false after unexpected close', () => {
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => { MockWebSocket.lastInstance!.simulateOpen() })
     expect(result.current.connected).toBe(true)
@@ -252,7 +257,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('reconnects after a disconnect with a 3-second delay', () => {
-    renderHook(() => useKrakenOhlc('XBT/USDT'))
+    renderHook(() => useKrakenOhlc('XBT/USDT', 1))
     const firstInstance = MockWebSocket.lastInstance!
 
     act(() => {
@@ -270,7 +275,7 @@ describe('useKrakenOhlc', () => {
 
   it('resets candles and reconnects when pair changes', () => {
     const { result, rerender } = renderHook(
-      ({ pair }: { pair: Pair }) => useKrakenOhlc(pair),
+      ({ pair }: { pair: Pair }) => useKrakenOhlc(pair, 1),
       { initialProps: { pair: 'XBT/USDT' as Pair } }
     )
 
@@ -293,7 +298,7 @@ describe('useKrakenOhlc', () => {
   })
 
   it('does not reconnect after unmount', () => {
-    const { unmount } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { unmount } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
     const instance = MockWebSocket.lastInstance!
 
     act(() => { instance.simulateOpen() })
@@ -314,15 +319,15 @@ describe('useKrakenOhlc REST backfill', () => {
     return { time, open: close, high: close, low: close, close, volume: 1 }
   }
 
-  it('calls fetchOHLC with the current pair and 1-minute interval on mount', () => {
-    renderHook(() => useKrakenOhlc('XBT/USDT'))
+  it('calls fetchOHLC with the current pair and interval on mount', () => {
+    renderHook(() => useKrakenOhlc('XBT/USDT', 1))
     expect(mockedFetchOHLC).toHaveBeenCalledTimes(1)
     expect(mockedFetchOHLC).toHaveBeenCalledWith('XBT/USDT', 1)
   })
 
   it('refetches backfill when the pair changes', () => {
     const { rerender } = renderHook(
-      ({ pair }: { pair: Pair }) => useKrakenOhlc(pair),
+      ({ pair }: { pair: Pair }) => useKrakenOhlc(pair, 1),
       { initialProps: { pair: 'XBT/USDT' as Pair } }
     )
     expect(mockedFetchOHLC).toHaveBeenLastCalledWith('XBT/USDT', 1)
@@ -341,7 +346,7 @@ describe('useKrakenOhlc REST backfill', () => {
     mockedFetchOHLC.mockResolvedValueOnce(history)
 
     vi.useRealTimers() // waitFor needs real timers to flush the fetch promise
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     await waitFor(() => {
       expect(result.current.candles).toHaveLength(3)
@@ -356,7 +361,7 @@ describe('useKrakenOhlc REST backfill', () => {
     mockedFetchOHLC.mockResolvedValueOnce(history)
 
     vi.useRealTimers()
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     await waitFor(() => {
       expect(result.current.candles).toHaveLength(500)
@@ -374,7 +379,7 @@ describe('useKrakenOhlc REST backfill', () => {
     )
 
     vi.useRealTimers()
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     // WS pushes a live candle before the REST backfill resolves
     act(() => {
@@ -416,7 +421,7 @@ describe('useKrakenOhlc REST backfill', () => {
     mockedFetchOHLC.mockRejectedValueOnce(new Error('kraken down'))
 
     vi.useRealTimers()
-    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalled()
@@ -424,6 +429,53 @@ describe('useKrakenOhlc REST backfill', () => {
     // Candles stay empty; hook is still usable (WS can still populate)
     expect(result.current.candles).toEqual([])
     consoleErrorSpy.mockRestore()
+  })
+})
+
+// ── Interval configuration ────────────────────────────────────────────────────
+
+describe('useKrakenOhlc interval configuration', () => {
+  it('passes interval through to fetchOHLC on mount', () => {
+    renderHook(() => useKrakenOhlc('XBT/USDT', 5))
+    expect(mockedFetchOHLC).toHaveBeenCalledWith('XBT/USDT', 5)
+  })
+
+  it('passes interval through to the WS subscribe payload', () => {
+    renderHook(() => useKrakenOhlc('XBT/USDT', 15))
+    act(() => { MockWebSocket.lastInstance!.simulateOpen() })
+    const sent = JSON.parse(MockWebSocket.lastInstance!.sentMessages[0]) as { subscription: { interval: number } }
+    expect(sent.subscription.interval).toBe(15)
+  })
+
+  it('resets candle buffer on interval change', () => {
+    const { result, rerender } = renderHook(
+      ({ interval }: { interval: OhlcInterval }) => useKrakenOhlc('XBT/USDT', interval),
+      { initialProps: { interval: 1 as OhlcInterval } }
+    )
+
+    act(() => {
+      MockWebSocket.lastInstance!.simulateOpen()
+      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_000))
+    })
+    expect(result.current.candles).toHaveLength(1)
+
+    rerender({ interval: 5 })
+
+    // Buffer resets immediately on interval change
+    expect(result.current.candles).toHaveLength(0)
+    expect(result.current.connected).toBe(false)
+  })
+
+  it('refetches REST backfill on interval change', () => {
+    const { rerender } = renderHook(
+      ({ interval }: { interval: OhlcInterval }) => useKrakenOhlc('XBT/USDT', interval),
+      { initialProps: { interval: 1 as OhlcInterval } }
+    )
+    expect(mockedFetchOHLC).toHaveBeenLastCalledWith('XBT/USDT', 1)
+
+    rerender({ interval: 60 })
+    expect(mockedFetchOHLC).toHaveBeenLastCalledWith('XBT/USDT', 60)
+    expect(mockedFetchOHLC).toHaveBeenCalledTimes(2)
   })
 })
 
@@ -439,7 +491,7 @@ describe('useKrakenOhlc + useKrakenWebSocket shared connection', () => {
     const socketAfterTicker = MockWebSocket.lastInstance
 
     // OHLC hook mounts while socket is OPEN — should reuse the same socket
-    const { result: ohlcResult } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result: ohlcResult } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     expect(MockWebSocket.lastInstance).toBe(socketAfterTicker)
     expect(ohlcResult.current.connected).toBe(true)
@@ -456,7 +508,7 @@ describe('useKrakenOhlc + useKrakenWebSocket shared connection', () => {
     const { result: tickerResult } = renderHook(() => useKrakenWebSocket('XBT/USDT'))
     const socketWhileConnecting = MockWebSocket.lastInstance
 
-    const { result: ohlcResult } = renderHook(() => useKrakenOhlc('XBT/USDT'))
+    const { result: ohlcResult } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     // No new socket should have been created (socket was CONNECTING)
     expect(MockWebSocket.lastInstance).toBe(socketWhileConnecting)

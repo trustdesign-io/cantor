@@ -13,7 +13,7 @@ import { useFearGreed } from '@/hooks/useFearGreed'
 import { useEtfFlows } from '@/hooks/useEtfFlows'
 import { useStablecoinSupply } from '@/hooks/useStablecoinSupply'
 import { getActiveBlackout } from '@/data/macroCalendar'
-import type { FilterContext, Pair, Tab } from '@/types'
+import type { FilterContext, OhlcInterval, Pair, Tab } from '@/types'
 
 /** Below this width, the layout cannot display correctly — show a resize prompt. */
 const MIN_VIEWPORT_WIDTH = 1280
@@ -42,7 +42,7 @@ function ResizeGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair) => void }) {
+function AppContent({ pair, onPairChange, interval, onIntervalChange }: { pair: Pair; onPairChange: (p: Pair) => void; interval: OhlcInterval; onIntervalChange: (i: OhlcInterval) => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('live')
   const [macroBlackout, setMacroBlackout] = useState<string | null>(() => getActiveBlackout())
 
@@ -71,7 +71,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
   )
 
   // Hoisted so trades persist when switching away from the Live tab
-  const { candles } = useKrakenOhlc(pair)
+  const { candles } = useKrakenOhlc(pair, interval)
   const { signal, signalResult, position, balance, trades } = useLiveStrategy(pair, candles, filterContext)
 
   return (
@@ -82,6 +82,8 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
       <Header
         pair={pair}
         onPairChange={onPairChange}
+        interval={interval}
+        onIntervalChange={onIntervalChange}
         price={price}
         change24h={change24h}
         fundingRate={fundingRate}
@@ -91,7 +93,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
       <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
         {activeTab === 'live' && (
-          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} etfFlows={etfFlows} stablecoinData={stablecoinData} fundingRate={fundingRate} fearGreedIndex={fearGreed === null ? null : fearGreed.value} />
+          <LiveTab pair={pair} interval={interval} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} etfFlows={etfFlows} stablecoinData={stablecoinData} fundingRate={fundingRate} fearGreedIndex={fearGreed === null ? null : fearGreed.value} />
         )}
         {activeTab === 'backtest' && <BacktestTab pair={pair} />}
         {activeTab === 'journal' && <JournalTab trades={trades} />}
@@ -103,10 +105,11 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
 export default function App() {
   const [pair, setPair] = useState<Pair>('XBT/USDT')
+  const [interval, setOhlcInterval] = useState<OhlcInterval>(1)
 
   return (
     <ResizeGuard>
-      <AppContent pair={pair} onPairChange={setPair} />
+      <AppContent pair={pair} onPairChange={setPair} interval={interval} onIntervalChange={setOhlcInterval} />
     </ResizeGuard>
   )
 }

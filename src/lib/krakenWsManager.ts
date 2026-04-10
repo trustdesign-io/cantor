@@ -8,6 +8,8 @@ export type KrakenChannel = 'ticker' | 'ohlc'
 export interface KrakenSubscriber {
   channel: KrakenChannel
   pair: Pair
+  /** Interval in minutes — only meaningful for the 'ohlc' channel. Defaults to 1 when absent. */
+  interval?: number
   onMessage: MessageHandler
   onConnected: ConnectedHandler
 }
@@ -38,7 +40,7 @@ class KrakenWsManager {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       // Already open — notify immediately and send subscribe
       sub.onConnected(true)
-      this.sendSubscribe(sub.channel, sub.pair)
+      this.sendSubscribe(sub)
     } else if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
       // No active connection — open one; onopen will subscribe everyone
       this.connect()
@@ -48,7 +50,7 @@ class KrakenWsManager {
     return () => {
       this.subscribers.delete(sub)
       if (this.ws?.readyState === WebSocket.OPEN) {
-        this.sendUnsubscribe(sub.channel, sub.pair)
+        this.sendUnsubscribe(sub)
       }
       if (this.subscribers.size === 0) {
         this.disconnectCleanly()
@@ -65,12 +67,12 @@ class KrakenWsManager {
       for (const sub of this.subscribers) {
         sub.onConnected(true)
       }
-      // Subscribe unique channel/pair combos in one pass
+      // Subscribe unique channel/pair/interval combos in one pass
       const subscribed = new Set<string>()
       for (const sub of this.subscribers) {
-        const key = `${sub.channel}:${sub.pair}`
+        const key = `${sub.channel}:${sub.pair}:${sub.interval ?? 1}`
         if (!subscribed.has(key)) {
-          this.sendSubscribe(sub.channel, sub.pair)
+          this.sendSubscribe(sub)
           subscribed.add(key)
         }
       }
@@ -89,9 +91,12 @@ class KrakenWsManager {
       const pairName = data[3] as string
 
       for (const sub of this.subscribers) {
-        // Kraken sends "ticker" for ticker and "ohlc-1" for 1-min OHLC,
-        // so we match by prefix: 'ohlc' matches 'ohlc-1', 'ticker' matches 'ticker'.
-        if (channelName.startsWith(sub.channel) && pairName === sub.pair) {
+        // Kraken sends "ticker" for ticker and "ohlc-1", "ohlc-5", etc. for OHLC.
+        // Match the full channel name so a 5m subscriber doesn't receive 1m messages.
+        const expectedChannel = sub.channel === 'ohlc'
+          ? `ohlc-${sub.interval ?? 1}`
+          : sub.channel
+        if (channelName === expectedChannel && pairName === sub.pair) {
           sub.onMessage(data[1])
         }
       }
@@ -124,27 +129,27 @@ class KrakenWsManager {
     }
   }
 
-  private sendSubscribe(channel: KrakenChannel, pair: Pair) {
+  private sendSubscribe(sub: KrakenSubscriber) {
     this.ws!.send(
       JSON.stringify({
         event: 'subscribe',
-        pair: [pair],
+        pair: [sub.pair],
         subscription: {
-          name: channel,
-          ...(channel === 'ohlc' ? { interval: 1 } : {}),
+          name: sub.channel,
+          ...(sub.channel === 'ohlc' ? { interval: sub.interval ?? 1 } : {}),
         },
       })
     )
   }
 
-  private sendUnsubscribe(channel: KrakenChannel, pair: Pair) {
+  private sendUnsubscribe(sub: KrakenSubscriber) {
     this.ws!.send(
       JSON.stringify({
         event: 'unsubscribe',
-        pair: [pair],
+        pair: [sub.pair],
         subscription: {
-          name: channel,
-          ...(channel === 'ohlc' ? { interval: 1 } : {}),
+          name: sub.channel,
+          ...(sub.channel === 'ohlc' ? { interval: sub.interval ?? 1 } : {}),
         },
       })
     )

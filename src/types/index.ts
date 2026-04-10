@@ -1,6 +1,14 @@
 /** Trading pair available in Cantor v0.1 */
 export type Pair = 'XBT/USDT' | 'ETH/USDT'
 
+/**
+ * OHLC candle interval in minutes.
+ * Matches the subset of Kraken's supported REST + WS interval values used
+ * for live trading. 1m is the default; larger intervals provide longer
+ * history windows at the same 720-row REST cap (e.g. 1h = ~30 days).
+ */
+export type OhlcInterval = 1 | 5 | 15 | 60 | 240
+
 /** The four main tabs */
 export type Tab = 'live' | 'backtest' | 'journal' | 'performance'
 
