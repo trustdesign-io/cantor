@@ -243,3 +243,46 @@ In machine learning, ablation means removing one component of a system and measu
 **Why it matters:** Ablation tests answer the question "is this filter actually helping?" rather than requiring you to take it on faith. A filter that vetoes many trades may be improving results, degrading them, or having no net effect. Without an ablation test, you cannot tell.
 
 **In Cantor:** The Filter Contribution report on the Performance tab runs an ablation: one baseline backtest with all filters on, then one backtest with each filter individually removed. The delta in total return %, Sharpe ratio, and trade count shows each filter's contribution. Results use 30 days of 60-minute historical candles from Kraken. Treat the results as directional only — a 30-day window produces too few trades (typically < 50) for statistical significance. A filter should be evaluated over hundreds of trades before drawing firm conclusions.
+
+---
+
+## Ollama
+
+An open-source tool that lets you run large language models (LLMs) locally on your own computer, without sending data to a cloud service. You download a model once, and all inference happens on your machine.
+
+**Why it matters:** Running a model locally means your trading data stays private and there are no API costs or rate limits. Latency is also low on modern hardware — typically under 200ms to first token for a small model like `llama3.2:3b`.
+
+**In Cantor:** Ollama powers the Live Commentary and Teach Me features. Cantor expects Ollama to be running on `http://localhost:11434`. Start it with `ollama serve` and pull the required model with `ollama pull llama3.2:3b`.
+
+---
+
+## Local LLM
+
+A large language model (LLM) running on your own computer rather than a remote cloud server. The model weights are stored locally; no data leaves your machine during inference.
+
+**Why it matters:** Cloud LLMs require an API key, send your prompts to a third-party server, and charge per token. A local LLM is free to run (beyond electricity), private, and available offline.
+
+**In Cantor:** The default local LLM is `llama3.2:3b`, a compact 3-billion parameter model that runs at acceptable speed on a modern laptop CPU. Swap the model by editing the `OLLAMA_MODEL` constant in `src/lib/ollama.ts`.
+
+---
+
+## Commentary event
+
+One of eight categorised state changes in the dashboard that Cantor considers worth explaining in plain language. When a commentary event fires, the `useCommentator` hook sends a structured prompt to the local LLM and streams the response into the Live Commentary panel.
+
+The eight event types are:
+
+| Event | What triggers it |
+|---|---|
+| `signal-change` | A BUY or SELL signal fires (EMA crossover passed all filters) |
+| `filter-veto` | A filter blocked a BUY or SELL base signal |
+| `ema-cross` | EMA 9 crosses above (golden) or below (death) EMA 21 |
+| `rsi-zone-enter` | RSI enters overbought (>70) or oversold (<30) territory |
+| `rsi-zone-exit` | RSI exits overbought or oversold territory |
+| `position-open` | A paper trade position is opened |
+| `position-close` | An open paper trade position is closed |
+| `funding-threshold-cross` | The perpetual funding rate crosses the extreme long (+0.1%) or short (−0.05%) threshold |
+
+**Why it matters:** Not every price tick is worth explaining — that would be noise. Commentary events mark the moments when the strategy engine's internal state changes in a way that has a clear educational story behind it.
+
+**In Cantor:** Events are detected by `src/lib/detectEvents.ts`, a pure function that compares two consecutive dashboard snapshots. See also: Ollama, local LLM.
