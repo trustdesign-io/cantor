@@ -13,13 +13,6 @@ export interface LiveStrategyState {
   trades: PaperTraderState['trades']
 }
 
-const INITIAL_LIVE_STATE: LiveStrategyState = {
-  signal: 'HOLD',
-  position: null,
-  balance: INITIAL_STATE.balance,
-  trades: [],
-}
-
 /**
  * Wires OHLC candles through indicators → signal → paper trader.
  *
