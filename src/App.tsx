@@ -5,6 +5,7 @@ import { LiveTab } from '@/tabs/Live'
 import { BacktestTab } from '@/tabs/Backtest'
 import { JournalTab } from '@/tabs/Journal'
 import { PerformanceTab } from '@/tabs/Performance'
+import { useKrakenWebSocket } from '@/hooks/useKrakenWebSocket'
 import type { Pair, Tab } from '@/types'
 
 /** Below this width, the layout cannot display correctly — show a resize prompt. */
@@ -34,31 +35,39 @@ function ResizeGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair) => void }) {
+  const [activeTab, setActiveTab] = useState<Tab>('live')
+  const { price, change24h } = useKrakenWebSocket(pair)
+
+  return (
+    <div
+      className="flex flex-col"
+      style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)' }}
+    >
+      <Header
+        pair={pair}
+        onPairChange={onPairChange}
+        price={price}
+        change24h={change24h}
+      />
+      <TabBar active={activeTab} onChange={setActiveTab} />
+
+      <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
+        {activeTab === 'live' && <LiveTab pair={pair} />}
+        {activeTab === 'backtest' && <BacktestTab />}
+        {activeTab === 'journal' && <JournalTab />}
+        {activeTab === 'performance' && <PerformanceTab />}
+      </main>
+    </div>
+  )
+}
+
 export default function App() {
   const [pair, setPair] = useState<Pair>('XBT/USDT')
-  const [activeTab, setActiveTab] = useState<Tab>('live')
 
   return (
     <ResizeGuard>
-      <div
-        className="flex flex-col"
-        style={{ minHeight: '100vh', backgroundColor: 'var(--bg-base)' }}
-      >
-        <Header
-          pair={pair}
-          onPairChange={setPair}
-          price={null}
-          change24h={null}
-        />
-        <TabBar active={activeTab} onChange={setActiveTab} />
-
-        <main className="flex-1 overflow-auto" style={{ backgroundColor: 'var(--bg-base)' }}>
-          {activeTab === 'live' && <LiveTab />}
-          {activeTab === 'backtest' && <BacktestTab />}
-          {activeTab === 'journal' && <JournalTab />}
-          {activeTab === 'performance' && <PerformanceTab />}
-        </main>
-      </div>
+      <AppContent pair={pair} onPairChange={setPair} />
     </ResizeGuard>
   )
 }
