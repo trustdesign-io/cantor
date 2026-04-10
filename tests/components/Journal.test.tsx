@@ -100,7 +100,7 @@ describe('Journal', () => {
     expect(within(rows[1]).getByText('XBT/USDT')).toBeInTheDocument()
   })
 
-  it('toggles sort to ascending when Date header clicked twice', async () => {
+  it('returns to descending date order when Date header is clicked twice', async () => {
     render(<Journal trades={[WIN_TRADE, LOSS_TRADE]} />)
     const dateHeader = screen.getByRole('columnheader', { name: /date/i })
     await userEvent.click(dateHeader) // asc

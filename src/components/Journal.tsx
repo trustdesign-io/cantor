@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { Trade } from '@/types'
 
 interface JournalProps {
@@ -53,11 +53,12 @@ function HeaderCell({ label, sortKey, active, dir, onSort }: HeaderCellProps) {
   return (
     <th
       scope="col"
-      role="columnheader"
       aria-sort={isActive ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      tabIndex={0}
       className="px-3 py-2 text-left text-xs font-medium whitespace-nowrap cursor-pointer select-none"
       style={{ color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }}
       onClick={() => onSort(sortKey)}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSort(sortKey) } }}
     >
       {label}
       <span className="ml-1 opacity-60">{isActive ? (dir === 'asc' ? '↑' : '↓') : '↕'}</span>
@@ -74,17 +75,22 @@ export function Journal({ trades }: JournalProps) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
     } else {
       setSortKey(key)
-      setSortDir('asc')
+      // Date defaults to desc (most recent first); numeric columns default to asc
+      setSortDir(key === 'date' ? 'desc' : 'asc')
     }
   }
 
-  const sorted = [...trades].sort((a, b) => {
-    let diff = 0
-    if (sortKey === 'date') diff = a.exitTime - b.exitTime
-    if (sortKey === 'pnlAbsolute') diff = a.pnlAbsolute - b.pnlAbsolute
-    if (sortKey === 'durationMs') diff = a.durationMs - b.durationMs
-    return sortDir === 'asc' ? diff : -diff
-  })
+  const sorted = useMemo(
+    () =>
+      [...trades].sort((a, b) => {
+        let diff = 0
+        if (sortKey === 'date') diff = a.exitTime - b.exitTime
+        if (sortKey === 'pnlAbsolute') diff = a.pnlAbsolute - b.pnlAbsolute
+        if (sortKey === 'durationMs') diff = a.durationMs - b.durationMs
+        return sortDir === 'asc' ? diff : -diff
+      }),
+    [trades, sortKey, sortDir],
+  )
 
   if (trades.length === 0) {
     return (
@@ -153,7 +159,11 @@ export function Journal({ trades }: JournalProps) {
                 <td className="px-3 py-2 whitespace-nowrap" style={MONO}>
                   {formatDuration(trade.durationMs)}
                 </td>
-                <td className="px-3 py-2 text-xs max-w-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                <td
+                  className="px-3 py-2 text-xs max-w-xs truncate"
+                  title={trade.signalReason}
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {trade.signalReason}
                 </td>
               </tr>
