@@ -29,7 +29,9 @@ function formatPrice(price: number): string {
 }
 
 export function SignalLog({ events, position, balance }: SignalLogProps) {
-  // Most recent event at top
+  // Most recent event at top; index in the reversed array maps back to
+  // (events.length - 1 - i) in the original — used as a stable unique key
+  // because timestamp+signal alone is not unique (consecutive HOLDs are common).
   const reversed = [...events].reverse()
 
   return (
@@ -56,16 +58,17 @@ export function SignalLog({ events, position, balance }: SignalLogProps) {
             <thead>
               <tr style={{ color: 'var(--text-secondary)', borderBottom: '1px solid var(--border)' }}>
                 <th className="px-4 py-2 text-left font-normal">Time</th>
+                <th className="px-4 py-2 text-left font-normal">Pair</th>
                 <th className="px-4 py-2 text-left font-normal">Signal</th>
                 <th className="px-4 py-2 text-right font-normal">Price</th>
               </tr>
             </thead>
             <tbody>
-              {reversed.map(event => {
+              {reversed.map((event, i) => {
                 const { label, color } = SIGNAL_STYLES[event.signal]
                 return (
                   <tr
-                    key={`${event.timestamp}-${event.signal}`}
+                    key={events.length - 1 - i}
                     style={{ borderBottom: '1px solid var(--border)' }}
                   >
                     <td
@@ -73,6 +76,9 @@ export function SignalLog({ events, position, balance }: SignalLogProps) {
                       style={{ color: 'var(--text-secondary)', fontFamily: 'JetBrains Mono, monospace' }}
                     >
                       {formatTime(event.timestamp)}
+                    </td>
+                    <td className="px-4 py-2" style={{ color: 'var(--text-secondary)' }}>
+                      {event.pair}
                     </td>
                     <td className="px-4 py-2 font-medium" style={{ color }}>
                       {label}
