@@ -233,3 +233,13 @@ The act of issuing new stablecoin tokens, increasing the total circulating suppl
 **Why it matters:** A large single-day mint is a potential leading indicator of a price move: new dollar capital has been converted to stablecoin and may soon be deployed to buy crypto assets. The signal is probabilistic, not deterministic.
 
 **In Cantor:** A "Mint" badge appears on the Stablecoin Supply panel when the combined USDT + USDC supply increases by more than 0.5B USD in a single day (the `LARGE_MINT_THRESHOLD_BILLIONS` constant in `src/data/stablecoinSupply.ts`). The badge highlights the single largest qualifying mint day within the 7-day window.
+
+---
+
+## Ablation
+
+In machine learning, ablation means removing one component of a system and measuring how performance changes. The term comes from neuroscience, where it originally referred to removing part of the brain and observing the resulting deficit.
+
+**Why it matters:** Ablation tests answer the question "is this filter actually helping?" rather than requiring you to take it on faith. A filter that vetoes many trades may be improving results, degrading them, or having no net effect. Without an ablation test, you cannot tell.
+
+**In Cantor:** The Filter Contribution report on the Performance tab runs an ablation: one baseline backtest with all filters on, then one backtest with each filter individually removed. The delta in total return %, Sharpe ratio, and trade count shows each filter's contribution. Results use 30 days of 60-minute historical candles from Kraken. Treat the results as directional only — a 30-day window produces too few trades (typically < 50) for statistical significance. A filter should be evaluated over hundreds of trades before drawing firm conclusions.
