@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
+import { z } from 'zod'
 import type { Pair } from '@/types'
+
+const KrakenTickerPayload = z.object({
+  c: z.tuple([z.string(), z.string()]),
+  o: z.string(),
+})
 
 export interface TickerState {
   /** Last trade price, or null while connecting */
@@ -81,9 +87,10 @@ export function useKrakenWebSocket(pair: Pair): TickerState {
           // System events (heartbeat, subscriptionStatus) are plain objects — skip them.
           if (!Array.isArray(data) || data[2] !== 'ticker') return
 
-          const ticker = data[1] as { c: [string, string]; o: string }
-          const price = parseFloat(ticker.c[0])
-          const openPrice = parseFloat(ticker.o)
+          const parsed = KrakenTickerPayload.safeParse(data[1])
+          if (!parsed.success) return
+          const price = parseFloat(parsed.data.c[0])
+          const openPrice = parseFloat(parsed.data.o)
           const change24h = openPrice > 0 ? ((price - openPrice) / openPrice) * 100 : 0
 
           setTickerState((s) => ({ ...s, price, change24h }))
