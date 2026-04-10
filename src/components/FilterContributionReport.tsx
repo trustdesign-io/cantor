@@ -49,12 +49,8 @@ export function FilterContributionReport({ pair }: FilterContributionReportProps
       // 30 days × 24 hours = 720 candles at 60-min intervals
       const since = Math.floor(Date.now() / 1000) - 30 * 24 * 60 * 60
       const candles = await fetchOHLC(pair, 60, since)
-      const entries = runFilterAblation(candles, pair, INITIAL_BALANCE)
-      // Baseline trade count: run with all filters, same candles
-      const { runBacktest } = await import('@/strategy/backtest')
-      const { DEFAULT_FILTERS } = await import('@/strategy/signals')
-      const baseline = runBacktest(candles, pair, {}, DEFAULT_FILTERS)
-      setTradeCount(baseline.trades.length)
+      const { entries, baselineTradeCount } = runFilterAblation(candles, pair, INITIAL_BALANCE)
+      setTradeCount(baselineTradeCount)
       setResults(entries)
       setStatus('done')
     } catch (err) {
@@ -69,6 +65,13 @@ export function FilterContributionReport({ pair }: FilterContributionReportProps
     } else {
       setSortKey(key)
       setSortDir('desc')
+    }
+  }
+
+  function handleSortKeyDown(key: SortKey, e: React.KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleSort(key)
     }
   }
 
@@ -108,6 +111,13 @@ export function FilterContributionReport({ pair }: FilterContributionReportProps
     fontFamily: 'var(--font-mono, "JetBrains Mono", monospace)',
   }
 
+  const SORT_COLS = [
+    { key: 'filterName' as SortKey, label: 'Filter' },
+    { key: 'deltaReturn' as SortKey, label: 'Return Δ %' },
+    { key: 'deltaSharpe' as SortKey, label: 'Sharpe Δ' },
+    { key: 'deltaTrades' as SortKey, label: 'Trades Δ' },
+  ] as const
+
   return (
     <section aria-labelledby="ablation-heading" style={{ marginTop: 24 }}>
       <div className="flex items-center justify-between gap-4" style={{ marginBottom: 12 }}>
@@ -143,7 +153,7 @@ export function FilterContributionReport({ pair }: FilterContributionReportProps
 
       {status === 'loading' && (
         <p className="text-xs" style={{ color: 'var(--text-secondary)' }} aria-live="polite">
-          Fetching 30 days of 60-min candles and running {'{N+1}'} backtests…
+          Fetching 30 days of 60-min candles and running backtests…
         </p>
       )}
 
@@ -160,18 +170,13 @@ export function FilterContributionReport({ pair }: FilterContributionReportProps
             >
               <thead>
                 <tr>
-                  {(
-                    [
-                      { key: 'filterName' as SortKey, label: 'Filter' },
-                      { key: 'deltaReturn' as SortKey, label: 'Return Δ %' },
-                      { key: 'deltaSharpe' as SortKey, label: 'Sharpe Δ' },
-                      { key: 'deltaTrades' as SortKey, label: 'Trades Δ' },
-                    ] as const
-                  ).map(col => (
+                  {SORT_COLS.map(col => (
                     <th
                       key={col.key}
                       scope="col"
+                      tabIndex={0}
                       onClick={() => handleSort(col.key)}
+                      onKeyDown={e => handleSortKeyDown(col.key, e)}
                       aria-sort={
                         sortKey === col.key
                           ? sortDir === 'asc' ? 'ascending' : 'descending'
@@ -211,8 +216,7 @@ export function FilterContributionReport({ pair }: FilterContributionReportProps
             </table>
           </div>
           <p className="text-xs" style={{ color: 'var(--text-secondary)', marginTop: 8 }}>
-            Δ = baseline (all filters on) minus with-filter removed.
-            Positive return Δ means the filter added to total return.
+            Δ = baseline minus with-filter-removed. Positive Δ means the filter helped — removing it reduced return.
           </p>
         </>
       )}

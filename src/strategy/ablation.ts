@@ -28,10 +28,17 @@ export interface AblationEntry {
   allTradesRemoved: boolean
 }
 
+export interface AblationResult {
+  /** Per-filter delta entries, in the same order as the `filters` array. */
+  entries: AblationEntry[]
+  /** Number of completed trades in the baseline run (all filters on). */
+  baselineTradeCount: number
+}
+
 /**
  * Runs N+1 backtests: one baseline (all filters on), then one with each filter
  * individually removed. Returns per-filter deltas for return %, Sharpe ratio,
- * and trade count.
+ * and trade count, plus the baseline trade count for sample-size display.
  *
  * Results are fully deterministic given the same candle set — the backtester
  * does not use `Date.now()` or any other source of non-determinism for trade
@@ -47,11 +54,12 @@ export function runFilterAblation(
   pair: Pair,
   startingBalance: number = INITIAL_BALANCE,
   filters: readonly FilterFn[] = DEFAULT_FILTERS,
-): AblationEntry[] {
+): AblationResult {
   const baseline = runBacktest(candles, pair, {}, filters)
   const baselineMetrics = computeMetrics(baseline.trades, startingBalance)
+  const baselineTradeCount = baseline.trades.length
 
-  return filters.map(filter => {
+  const entries = filters.map(filter => {
     const filtersWithout = filters.filter(f => f !== filter)
     const result = runBacktest(candles, pair, {}, filtersWithout)
     const metrics = computeMetrics(result.trades, startingBalance)
@@ -61,7 +69,9 @@ export function runFilterAblation(
       deltaReturn: baselineMetrics.totalReturnPct - metrics.totalReturnPct,
       deltaSharpe: baselineMetrics.sharpeRatio - metrics.sharpeRatio,
       deltaTrades: result.trades.length - baseline.trades.length,
-      allTradesRemoved: baseline.trades.length === 0,
+      allTradesRemoved: baselineTradeCount === 0,
     }
   })
+
+  return { entries, baselineTradeCount }
 }
