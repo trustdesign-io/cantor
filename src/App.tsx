@@ -10,6 +10,7 @@ import { useKrakenOhlc } from '@/hooks/useKrakenOhlc'
 import { useLiveStrategy } from '@/hooks/useLiveStrategy'
 import { useFundingRate } from '@/hooks/useFundingRate'
 import { useFearGreed } from '@/hooks/useFearGreed'
+import { useEtfFlows } from '@/hooks/useEtfFlows'
 import { getActiveBlackout } from '@/data/macroCalendar'
 import type { FilterContext, Pair, Tab } from '@/types'
 
@@ -53,6 +54,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
   const { price, change24h } = useKrakenWebSocket(pair)
   const { fundingRate } = useFundingRate()
   const { fearGreed } = useFearGreed()
+  const { flows: etfFlows } = useEtfFlows()
 
   // Stable FilterContext — only rebuilds when the underlying values change.
   // Passing an inline object literal would recreate it every render, causing
@@ -61,8 +63,9 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
     () => ({
       fundingRate: fundingRate === null ? undefined : fundingRate,
       fearGreedIndex: fearGreed === null ? undefined : fearGreed.value,
+      etfFlows: etfFlows === null ? undefined : etfFlows,
     }),
-    [fundingRate, fearGreed]
+    [fundingRate, fearGreed, etfFlows]
   )
 
   // Hoisted so trades persist when switching away from the Live tab
@@ -86,7 +89,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
 
       <main className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-base)' }}>
         {activeTab === 'live' && (
-          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} />
+          <LiveTab pair={pair} candles={candles} signal={signal} signalResult={signalResult} position={position} balance={balance} macroBlackout={macroBlackout} etfFlows={etfFlows} />
         )}
         {activeTab === 'backtest' && <BacktestTab pair={pair} />}
         {activeTab === 'journal' && <JournalTab trades={trades} />}
