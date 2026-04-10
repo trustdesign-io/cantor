@@ -55,7 +55,7 @@ describe('RsiChart', () => {
   it('creates two price lines for overbought and oversold thresholds on mount', () => {
     render(<RsiChart candles={[]} />)
     expect(mockCreatePriceLine).toHaveBeenCalledTimes(2)
-    const prices = mockCreatePriceLine.mock.calls.map(([opts]: [{ price: number }]) => opts.price)
+    const prices = mockCreatePriceLine.mock.calls.map((args: unknown[]) => (args[0] as { price: number }).price)
     expect(prices).toContain(70)  // RSI_OVERBOUGHT
     expect(prices).toContain(30)  // RSI_OVERSOLD
   })
