@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { TeachMeButton } from '@/components/TeachMeButton'
 import type { Trade } from '@/types'
 
 interface JournalProps {
@@ -184,11 +185,17 @@ export function Journal({ trades }: JournalProps) {
                   </td>
                 )}
                 <td
-                  className="px-3 py-2 text-xs max-w-xs truncate"
+                  className="px-3 py-2 text-xs max-w-xs"
                   title={trade.signalReason}
                   style={{ color: 'var(--text-secondary)' }}
                 >
-                  {trade.signalReason}
+                  <span className="flex items-center gap-1">
+                    <span className="truncate">{trade.signalReason}</span>
+                    <TeachMeButton
+                      topicId="trade-result"
+                      currentValue={`Entry ${NUM_FMT.format(trade.entryPrice)}, exit ${NUM_FMT.format(trade.exitPrice)}, P&L ${formatPnl(trade.pnlAbsolute)} (${formatPct(trade.pnlPercent)}), duration ${formatDuration(trade.durationMs)}`}
+                    />
+                  </span>
                 </td>
               </tr>
             )

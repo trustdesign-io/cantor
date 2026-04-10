@@ -67,3 +67,9 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+
+/* Reveal teach-me (?) buttons on parent hover */
+*:hover > .teach-me-btn,
+*:focus-within > .teach-me-btn {
+  opacity: 1;
+}

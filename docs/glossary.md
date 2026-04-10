@@ -286,3 +286,13 @@ The eight event types are:
 **Why it matters:** Not every price tick is worth explaining — that would be noise. Commentary events mark the moments when the strategy engine's internal state changes in a way that has a clear educational story behind it.
 
 **In Cantor:** Events are detected by `src/lib/detectEvents.ts`, a pure function that compares two consecutive dashboard snapshots. See also: Ollama, local LLM.
+
+---
+
+## Teach me
+
+An on-demand explanation feature available on every educational element in the dashboard. Clicking the `(?)` icon next to a value opens a modal that streams a ~150-word plain-English explanation from the local LLM, tailored to the element's current value.
+
+**Why it matters:** Rather than requiring the user to leave the app and search for definitions, "teach me" surfaces just-in-time context: what the element is, what the current value means, and why it matters for trading decisions.
+
+**In Cantor:** Powered by the same Ollama client as Live Commentary. Each teachable element has a `TeachTopic` definition in `src/lib/teachTopics.ts`. Explanations are cached in memory per (topic, value) pair for the duration of the page session — reopening the same modal with the same value returns the cached response immediately without a second LLM call. Requires Ollama running on `localhost:11434` with `llama3.2:3b` pulled.

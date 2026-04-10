@@ -114,6 +114,40 @@ Cache the results per (topic, value) — the same modal opened twice in a row sh
 
 Accessibility is non-negotiable on modals. Use the existing shadcn Dialog primitive rather than rolling a new one.
 
+---
+
+### 10.4 Runtime model picker in CommentatorPanel
+
+- **Category:** Feature
+- **Priority:** Low
+- **Size:** S
+- **Status:** Backlog
+
+## Overview
+Editing `src/lib/ollama.ts` every time you want to try a different local model is friction. Add a small dropdown in the CommentatorPanel header that lists whatever models are installed in the local Ollama instance, persists the selection to `localStorage`, and overrides the `OLLAMA_MODEL` constant at runtime. A one-click model swap so `llama3.2:3b` vs `qwen2.5:7b` vs anything else the user has pulled becomes an A/B comparison, not a code edit.
+
+Depends on 10.1 (client) and 10.2 (panel) already existing.
+
+## Acceptance Criteria
+- [ ] New function `listModels()` in `src/lib/ollama.ts` — GETs `http://localhost:11434/api/tags`, parses the response with zod, returns `string[]` of model names. Returns `[]` on any error (Ollama down, parse fail, network)
+- [ ] New hook `src/hooks/useOllamaModels.ts` — calls `listModels()` on mount, exposes `{ models, loading, error }`. Refetch exposed as a function so the dropdown can refresh on open
+- [ ] New module `src/lib/modelPreference.ts` exports `getPreferredModel(): string` and `setPreferredModel(name: string): void`. Reads/writes `localStorage` key `cantor.ollamaModel`. Falls back to `OLLAMA_MODEL` constant when unset or when running in a non-browser environment (tests)
+- [ ] `streamChat` calls in `useCommentator` and (when 10.3 ships) `useTeachMe` read the model from `getPreferredModel()` instead of the constant directly
+- [ ] CommentatorPanel header gains a small `<select>` dropdown (or shadcn Select) to the right of the existing `llama3.2:3b` badge — which is now driven by `getPreferredModel()` rather than the constant
+- [ ] Dropdown shows all installed models from `useOllamaModels()`. Currently-selected model is highlighted. Selecting a new model calls `setPreferredModel()` and immediately updates the badge
+- [ ] When Ollama is unreachable, the dropdown is disabled and shows a tooltip "Ollama unreachable — showing last saved model"
+- [ ] Changing the model does NOT retroactively rewrite existing commentary entries. New events use the new model
+- [ ] Unit tests cover: `listModels` parses a valid `/api/tags` response, `listModels` returns `[]` on error, `getPreferredModel` returns the stored value when present, `getPreferredModel` falls back to the constant when unset, selecting a new model in the dropdown persists to localStorage and updates the badge, dropdown disabled state when Ollama is unreachable
+- [ ] `docs/glossary.md` gains an entry for "model picker"
+- [ ] Commit: `feat: runtime model picker for commentator`
+
+## Notes
+Keep this strictly additive. `OLLAMA_MODEL` stays as the fallback constant — the picker layers on top of it, it doesn't replace it. That way nothing breaks if localStorage is cleared or the hook fails.
+
+`/api/tags` returns an object like `{ models: [{ name: "llama3.2:3b", ... }, ...] }`. Parse defensively — model metadata has changed shape across Ollama versions.
+
+This pairs naturally with the **Per-event severity** follow-up mentioned at the bottom of this doc: once you can swap models at will, comparing which model writes better commentary on the same event stream becomes the obvious next experiment.
+
 <!-- END BATCH -->
 
 ## After this batch
