@@ -1,9 +1,14 @@
-/** Journal tab — completed trade table with P&L colouring and sort.
- *  Implemented in ticket #14. */
-export function JournalTab() {
+import { Journal } from '@/components/Journal'
+import type { Trade } from '@/types'
+
+interface JournalTabProps {
+  trades: readonly Trade[]
+}
+
+export function JournalTab({ trades }: JournalTabProps) {
   return (
-    <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-secondary)' }}>
-      <span className="text-sm">Journal — trade history table (coming in Phase 4)</span>
+    <div style={{ height: 'calc(100vh - 88px)' }}>
+      <Journal trades={trades} />
     </div>
   )
 }
