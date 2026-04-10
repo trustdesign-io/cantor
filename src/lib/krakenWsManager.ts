@@ -91,9 +91,12 @@ class KrakenWsManager {
       const pairName = data[3] as string
 
       for (const sub of this.subscribers) {
-        // Kraken sends "ticker" for ticker and "ohlc-1" for 1-min OHLC,
-        // so we match by prefix: 'ohlc' matches 'ohlc-1', 'ticker' matches 'ticker'.
-        if (channelName.startsWith(sub.channel) && pairName === sub.pair) {
+        // Kraken sends "ticker" for ticker and "ohlc-1", "ohlc-5", etc. for OHLC.
+        // Match the full channel name so a 5m subscriber doesn't receive 1m messages.
+        const expectedChannel = sub.channel === 'ohlc'
+          ? `ohlc-${sub.interval ?? 1}`
+          : sub.channel
+        if (channelName === expectedChannel && pairName === sub.pair) {
           sub.onMessage(data[1])
         }
       }

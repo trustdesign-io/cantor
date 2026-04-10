@@ -105,11 +105,11 @@ function AppContent({ pair, onPairChange, interval, onIntervalChange }: { pair: 
 
 export default function App() {
   const [pair, setPair] = useState<Pair>('XBT/USDT')
-  const [interval, setInterval] = useState<OhlcInterval>(1)
+  const [interval, setOhlcInterval] = useState<OhlcInterval>(1)
 
   return (
     <ResizeGuard>
-      <AppContent pair={pair} onPairChange={setPair} interval={interval} onIntervalChange={setInterval} />
+      <AppContent pair={pair} onPairChange={setPair} interval={interval} onIntervalChange={setOhlcInterval} />
     </ResizeGuard>
   )
 }
