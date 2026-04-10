@@ -3,9 +3,12 @@ import { fetchOHLC } from '@/api/krakenRest'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Returns a minimal valid Kraken OHLC row for testing. */
-function krakenRow(time: number, close: string, open = '40000', high = '41000', low = '39000', volume = '1.5') {
-  return [time, time + 60, open, high, low, close, '40500', volume, 10]
+/**
+ * Returns a minimal valid Kraken REST OHLC row for testing.
+ * Shape: [time, open, high, low, close, vwap, volume, count] — 8 elements (no etime).
+ */
+function krakenRow(time: number, close: string, open = '40000', high = '41000', low = '39000', volume = '1.5', vwap = '40500') {
+  return [time, open, high, low, close, vwap, volume, 10]
 }
 
 function makeSuccessBody(rows: unknown[]) {
@@ -100,6 +103,21 @@ describe('fetchOHLC', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(fetchOHLC('XBT/USDT', 1)).rejects.toThrow('Failed to fetch')
+  })
+
+  it('parses zero-volume rows without collapsing close to zero', async () => {
+    // Kraken returns vwap = "0.0" on zero-volume minutes. The off-by-one bug
+    // (9-element type with etime slot) caused closeStr to read vwap, making close = 0.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(makeSuccessBody([
+        krakenRow(1_700_000_000, '72970.0', '72968.3', '72970.1', '72968.3', '0.00000', '0.0'),
+      ]), { status: 200 })
+    ))
+
+    const candles = await fetchOHLC('XBT/USDT', 1)
+    expect(candles).toHaveLength(1)
+    expect(candles[0].close).toBe(72_970.0)
+    expect(candles[0].close).not.toBe(0)
   })
 
   it('skips rows with non-finite numeric values', async () => {

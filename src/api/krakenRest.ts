@@ -9,8 +9,10 @@ const PAIR_MAP: Record<Pair, string> = {
   'ETH/USDT': 'ETHUSDT',
 }
 
-/** Shape of one OHLC row returned by Kraken: [time, etime, open, high, low, close, vwap, volume, count] */
-type KrakenOhlcRow = [number, number, string, string, string, string, string, string, number]
+// Kraken REST /0/public/OHLC returns 8-element rows: [time, open, high, low, close, vwap, volume, count].
+// This is different from the WS v1 ohlc payload, which has 9 elements including etime.
+// Do not unify them — they are genuinely different shapes.
+type KrakenOhlcRow = [number, string, string, string, string, string, string, number]
 
 /** Shape of the Kraken OHLC response envelope. */
 interface KrakenOhlcResponse {
@@ -24,8 +26,9 @@ interface KrakenOhlcResponse {
  * @param pair     - Trading pair (e.g. 'XBT/USDT').
  * @param interval - Candle interval in minutes (e.g. 1, 5, 60).
  * @param since    - Optional Unix timestamp (seconds). Kraken returns candles since this time.
- * @returns        - Array of Candle objects mapped from Kraken's response. Rows with
- *                   non-finite values are silently skipped.
+ * @returns        - Array of Candle objects mapped from Kraken's response. Each row is
+ *                   an 8-element tuple [time, open, high, low, close, vwap, volume, count].
+ *                   Rows with non-finite values are silently skipped.
  * @throws         - If the network request fails, the HTTP status is not OK, or the
  *                   Kraken error envelope contains error messages.
  */
@@ -56,7 +59,7 @@ export async function fetchOHLC(pair: Pair, interval: number, since?: number): P
   if (!rows) return []
 
   const candles: Candle[] = []
-  for (const [time, , openStr, highStr, lowStr, closeStr, , volumeStr] of rows) {
+  for (const [time, openStr, highStr, lowStr, closeStr, , volumeStr] of rows) {
     const open   = parseFloat(openStr)
     const high   = parseFloat(highStr)
     const low    = parseFloat(lowStr)
