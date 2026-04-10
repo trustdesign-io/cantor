@@ -73,17 +73,21 @@ class MockWebSocket {
  * Build a Kraken v1 OHLC message: [channelID, payload, "ohlc-1", pair]
  * Kraken sends time fields as strings (microsecond-precise), so position 0
  * is String(time) to match the z.string() schema.
+ *
+ * Pass `timeOffsetMicros` (e.g. `'297534'`) to produce a microsecond-precise
+ * time string like `"1700000040.297534"` — exercising the real wire format.
  */
 function ohlcMessage(
   pair: string,
   time: number,
-  opts: { open?: string; high?: string; low?: string; close?: string; volume?: string } = {},
+  opts: { open?: string; high?: string; low?: string; close?: string; volume?: string; timeOffsetMicros?: string } = {},
   interval = 1
 ) {
+  const timeStr = opts.timeOffsetMicros ? `${time}.${opts.timeOffsetMicros}` : String(time)
   return [
     42,
     [
-      String(time),              // 0: begin time as string (Kraken WS v1 format)
+      timeStr,                   // 0: begin time as string (Kraken WS v1 format)
       String(time + interval * 60), // 1: end time as string
       opts.open ?? '45000.00',
       opts.high ?? '45100.00',
@@ -158,7 +162,7 @@ describe('useKrakenOhlc', () => {
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
       MockWebSocket.lastInstance!.simulateMessage(
-        ohlcMessage('XBT/USDT', 1_700_000_000, {
+        ohlcMessage('XBT/USDT', 1_700_000_040, {
           open: '45000.00', high: '45100.00', low: '44900.00',
           close: '45050.00', volume: '1.5',
         })
@@ -167,7 +171,7 @@ describe('useKrakenOhlc', () => {
 
     expect(result.current.candles).toHaveLength(1)
     const candle = result.current.candles[0]
-    expect(candle.time).toBe(1_700_000_000)
+    expect(candle.time).toBe(1_700_000_040)
     expect(candle.open).toBe(45000)
     expect(candle.high).toBe(45100)
     expect(candle.low).toBe(44900)
@@ -182,11 +186,11 @@ describe('useKrakenOhlc', () => {
       MockWebSocket.lastInstance!.simulateOpen()
       // First tick of the candle
       MockWebSocket.lastInstance!.simulateMessage(
-        ohlcMessage('XBT/USDT', 1_700_000_000, { close: '45000.00', high: '45000.00' })
+        ohlcMessage('XBT/USDT', 1_700_000_040, { close: '45000.00', high: '45000.00' })
       )
       // Updated tick — same timestamp, higher high
       MockWebSocket.lastInstance!.simulateMessage(
-        ohlcMessage('XBT/USDT', 1_700_000_000, { close: '45080.00', high: '45100.00' })
+        ohlcMessage('XBT/USDT', 1_700_000_040, { close: '45080.00', high: '45100.00' })
       )
     })
 
@@ -196,18 +200,42 @@ describe('useKrakenOhlc', () => {
     expect(result.current.candles[0].high).toBe(45100)
   })
 
+  it('accepts microsecond-precise string timestamps from Kraken WS', () => {
+    // Regression: Kraken sends time as "1700000040.297534", not "1700000040".
+    // The schema must use z.string() at position 0; z.number() silently freezes the live loop.
+    const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
+
+    act(() => {
+      MockWebSocket.lastInstance!.simulateOpen()
+      // First tick — microsecond-precise time string on a minute boundary
+      MockWebSocket.lastInstance!.simulateMessage(
+        ohlcMessage('XBT/USDT', 1_700_000_040, { close: '45000.00', timeOffsetMicros: '297534' })
+      )
+      // Second tick — same bucket (same microsecond offset), updated close
+      MockWebSocket.lastInstance!.simulateMessage(
+        ohlcMessage('XBT/USDT', 1_700_000_040, { close: '45080.00', timeOffsetMicros: '297534' })
+      )
+    })
+
+    // Exactly one candle — updated in place, not appended as a new one
+    expect(result.current.candles).toHaveLength(1)
+    expect(result.current.candles[0].close).toBe(45080)
+    // Time is stored as parseFloat of the microsecond-precise string
+    expect(result.current.candles[0].time).toBe(parseFloat('1700000040.297534'))
+  })
+
   it('appends a new candle when the timestamp changes', () => {
     const { result } = renderHook(() => useKrakenOhlc('XBT/USDT', 1))
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
-      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_000))
-      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_060))
+      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_040))
+      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_100))
     })
 
     expect(result.current.candles).toHaveLength(2)
-    expect(result.current.candles[0].time).toBe(1_700_000_000)
-    expect(result.current.candles[1].time).toBe(1_700_000_060)
+    expect(result.current.candles[0].time).toBe(1_700_000_040)
+    expect(result.current.candles[1].time).toBe(1_700_000_100)
   })
 
   it('caps the buffer at MAX_CANDLES (500) by dropping the oldest candle', () => {
@@ -218,15 +246,15 @@ describe('useKrakenOhlc', () => {
       // Push 501 distinct candles
       for (let i = 0; i < 501; i++) {
         MockWebSocket.lastInstance!.simulateMessage(
-          ohlcMessage('XBT/USDT', 1_700_000_000 + i * 60)
+          ohlcMessage('XBT/USDT', 1_700_000_040 + i * 60)
         )
       }
     })
 
     expect(result.current.candles).toHaveLength(500)
     // Oldest candle dropped — first retained is the second one
-    expect(result.current.candles[0].time).toBe(1_700_000_000 + 60)
-    expect(result.current.candles[499].time).toBe(1_700_000_000 + 500 * 60)
+    expect(result.current.candles[0].time).toBe(1_700_000_040 + 60)
+    expect(result.current.candles[499].time).toBe(1_700_000_040 + 500 * 60)
   })
 
   it('ignores non-ohlc messages (ticker, heartbeat)', () => {
@@ -281,7 +309,7 @@ describe('useKrakenOhlc', () => {
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
-      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_000))
+      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_040))
     })
     expect(result.current.candles).toHaveLength(1)
 
@@ -339,9 +367,9 @@ describe('useKrakenOhlc REST backfill', () => {
 
   it('populates candles with backfill when the WS has not yet pushed any data', async () => {
     const history = [
-      candle(1_700_000_000, 44000),
-      candle(1_700_000_060, 44500),
-      candle(1_700_000_120, 45000),
+      candle(1_700_000_040, 44000),
+      candle(1_700_000_100, 44500),
+      candle(1_700_000_160, 45000),
     ]
     mockedFetchOHLC.mockResolvedValueOnce(history)
 
@@ -356,7 +384,7 @@ describe('useKrakenOhlc REST backfill', () => {
 
   it('trims backfill to the most recent MAX_CANDLES (500)', async () => {
     const history = Array.from({ length: 600 }, (_, i) =>
-      candle(1_700_000_000 + i * 60, 44000 + i)
+      candle(1_700_000_040 + i * 60, 44000 + i)
     )
     mockedFetchOHLC.mockResolvedValueOnce(history)
 
@@ -367,8 +395,8 @@ describe('useKrakenOhlc REST backfill', () => {
       expect(result.current.candles).toHaveLength(500)
     })
     // Oldest retained should be candle #100 (600 - 500)
-    expect(result.current.candles[0].time).toBe(1_700_000_000 + 100 * 60)
-    expect(result.current.candles[499].time).toBe(1_700_000_000 + 599 * 60)
+    expect(result.current.candles[0].time).toBe(1_700_000_040 + 100 * 60)
+    expect(result.current.candles[499].time).toBe(1_700_000_040 + 599 * 60)
   })
 
   it('merges backfill under existing WS candles without clobbering live data', async () => {
@@ -385,19 +413,19 @@ describe('useKrakenOhlc REST backfill', () => {
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
       MockWebSocket.lastInstance!.simulateMessage(
-        ohlcMessage('XBT/USDT', 1_700_000_120, { close: '45000.00' })
+        ohlcMessage('XBT/USDT', 1_700_000_160, { close: '45000.00' })
       )
     })
     expect(result.current.candles).toHaveLength(1)
-    expect(result.current.candles[0].time).toBe(1_700_000_120)
+    expect(result.current.candles[0].time).toBe(1_700_000_160)
 
     // Now the REST backfill resolves — it overlaps with the live candle
-    // (time 1_700_000_120) and includes two older candles. Only the older
+    // (time 1_700_000_160) and includes two older candles. Only the older
     // ones should be prepended; the live candle must be preserved.
     const history = [
-      candle(1_700_000_000, 44000),
-      candle(1_700_000_060, 44500),
-      candle(1_700_000_120, 99999), // would clobber if merge logic is wrong
+      candle(1_700_000_040, 44000),
+      candle(1_700_000_100, 44500),
+      candle(1_700_000_160, 99999), // would clobber if merge logic is wrong
     ]
     await act(async () => {
       resolveFetch(history)
@@ -408,9 +436,9 @@ describe('useKrakenOhlc REST backfill', () => {
       expect(result.current.candles).toHaveLength(3)
     })
     expect(result.current.candles.map((c) => c.time)).toEqual([
-      1_700_000_000,
-      1_700_000_060,
-      1_700_000_120,
+      1_700_000_040,
+      1_700_000_100,
+      1_700_000_160,
     ])
     // Live candle preserved, NOT overwritten by the stale REST row
     expect(result.current.candles[2].close).toBe(45000)
@@ -455,7 +483,7 @@ describe('useKrakenOhlc interval configuration', () => {
 
     act(() => {
       MockWebSocket.lastInstance!.simulateOpen()
-      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_000))
+      MockWebSocket.lastInstance!.simulateMessage(ohlcMessage('XBT/USDT', 1_700_000_040))
     })
     expect(result.current.candles).toHaveLength(1)
 
