@@ -1,8 +1,9 @@
 import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
-import { computeSignal, EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
+import { detectSignal, EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD, DEFAULT_FILTERS } from '@/strategy/signals'
 import { onSignal, INITIAL_STATE } from '@/strategy/paperTrader'
-import type { Candle, Pair, Trade } from '@/types'
+import { sizeForSignal } from '@/strategy/sizing'
+import type { Candle, FilterContext, FilterFn, Pair, Trade } from '@/types'
 import type { PaperTraderState } from '@/strategy/paperTrader'
 
 export interface BacktestResult {
@@ -10,10 +11,8 @@ export interface BacktestResult {
   trades: readonly Trade[]
   /**
    * Cash balance at the end of the run.
-   * If a position is still open when the series ends, this is 0 because all
-   * capital has been deployed into that position. The open position is not
-   * marked-to-market; callers that need mark-to-market value should check
-   * `trades` and the last candle's close separately.
+   * If a position is still open when the series ends, this represents the
+   * un-deployed cash — the position is not marked-to-market.
    */
   finalBalance: number
 }
@@ -31,11 +30,18 @@ export interface BacktestResult {
  *
  * @param candles - Full historical candle series (oldest first). Not mutated.
  * @param pair    - Trading pair (used to label completed trades).
+ * @param context - Filter context to use for every bar (e.g. for ablation tests).
+ *                  In live backtests this is typically empty (no real-time data).
+ * @param filters - Filter pipeline. Defaults to DEFAULT_FILTERS. Pass a subset
+ *                  to run ablation tests (Phase 9).
  * @returns       - BacktestResult with completed trades and cash balance.
- *                  finalBalance is 0 when a position is still open at the end
- *                  (all capital has been deployed; see BacktestResult.finalBalance).
  */
-export function runBacktest(candles: readonly Candle[], pair: Pair): BacktestResult {
+export function runBacktest(
+  candles: readonly Candle[],
+  pair: Pair,
+  context: FilterContext = {},
+  filters: readonly FilterFn[] = DEFAULT_FILTERS
+): BacktestResult {
   const MIN_CANDLES = EMA_SLOW_PERIOD + 1
 
   if (candles.length < MIN_CANDLES) {
@@ -46,16 +52,21 @@ export function runBacktest(candles: readonly Candle[], pair: Pair): BacktestRes
 
   for (let i = MIN_CANDLES - 1; i < candles.length; i++) {
     // Compute indicators over all candles up to and including this bar
-    const closes = candles.slice(0, i + 1).map(c => c.close)
-    const signal = computeSignal(
+    const candlesUpToBar = candles.slice(0, i + 1)
+    const closes = candlesUpToBar.map(c => c.close)
+    const result = detectSignal(
       ema(closes, EMA_FAST_PERIOD),
       ema(closes, EMA_SLOW_PERIOD),
       rsi(closes, RSI_PERIOD),
+      candlesUpToBar,
+      context,
+      filters,
     )
 
-    if (signal !== 'HOLD') {
+    if (result.signal !== 'HOLD') {
       const candle = candles[i]
-      state = onSignal(state, signal, candle.close, candle.time * 1000, pair)
+      const sizeMultiplier = sizeForSignal(result.signal, context)
+      state = onSignal(state, result.signal, candle.close, candle.time * 1000, pair, sizeMultiplier)
     }
   }
 

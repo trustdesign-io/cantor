@@ -4,7 +4,7 @@ import type { Pair, Position, Signal, Trade } from '@/types'
 export const INITIAL_BALANCE = 10_000
 
 export interface PaperTraderState {
-  /** Available USDT balance — 0 when fully invested in a position */
+  /** Available USDT balance — reduced by the deployed amount on each BUY */
   balance: number
   /** Currently open position, or null if flat */
   position: Position | null
@@ -23,25 +23,22 @@ export const INITIAL_STATE: PaperTraderState = {
  * the input is never mutated.
  *
  * Signal handling:
- *   BUY  — Open a long position using the entire available balance.
+ *   BUY  — Open a long position deploying `balance * sizeMultiplier` USDT.
+ *           The `sizeMultiplier` is capped at 1.0 (cannot invest more than
+ *           available balance without leverage). With sizeMultiplier = 1.0
+ *           (the default), behaviour is identical to the original all-in trader.
  *           Ignored if a position is already open or balance is zero.
  *   SELL — Close the open position, realise P&L, append completed trade.
  *           Ignored if no position is open.
  *   HOLD — No state change.
- *
- * Position sizing simplification:
- *   100% of the available balance is deployed on each BUY signal.
- *   In a real strategy you would use fractional sizing (e.g. fixed-fraction
- *   or Kelly criterion) to limit risk. For a paper-trading lab the all-in
- *   approach keeps the P&L maths simple and ensures at most one open
- *   position at any time.
  */
 export function onSignal(
   state: PaperTraderState,
   signal: Signal,
   price: number,
   timestamp: number,
-  pair: Pair
+  pair: Pair,
+  sizeMultiplier = 1.0
 ): PaperTraderState {
   if (signal === 'HOLD') return state
 
@@ -49,8 +46,11 @@ export function onSignal(
     if (state.position !== null) return state  // already in a position
     if (state.balance <= 0) return state       // nothing to invest
 
-    /** Size in base currency (e.g. BTC for XBT/USDT): balance / price */
-    const size = state.balance / price
+    // Cap at 1.0 — paper trading has no leverage. Values above 1.0 are reserved
+    // for future margin-aware implementations.
+    const effectiveMultiplier = Math.min(1.0, sizeMultiplier)
+    const deployedAmount = state.balance * effectiveMultiplier
+    const size = deployedAmount / price
 
     const position: Position = {
       pair,
@@ -58,9 +58,14 @@ export function onSignal(
       entryTime: timestamp,
       size,
       unrealisedPnl: 0,
+      sizeMultiplier: effectiveMultiplier,
     }
 
-    return { ...state, balance: 0, position }
+    return {
+      ...state,
+      balance: state.balance - deployedAmount,
+      position,
+    }
   }
 
   if (signal === 'SELL') {
@@ -83,11 +88,12 @@ export function onSignal(
       pnlPercent,
       durationMs: timestamp - position.entryTime,
       signalReason: `EMA 9/21 crossover, exit price ${price.toFixed(2)}`,
+      sizeMultiplier: position.sizeMultiplier,
     }
 
     return {
       ...state,
-      balance: exitValue,
+      balance: state.balance + exitValue,
       position: null,
       trades: [...state.trades, trade],
     }

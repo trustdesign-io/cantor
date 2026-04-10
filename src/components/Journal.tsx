@@ -69,6 +69,7 @@ function HeaderCell({ label, sortKey, active, dir, onSort }: HeaderCellProps) {
 export function Journal({ trades }: JournalProps) {
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [showSizeCol, setShowSizeCol] = useState(false)
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -105,6 +106,21 @@ export function Journal({ trades }: JournalProps) {
 
   return (
     <div className="overflow-auto h-full" style={{ backgroundColor: 'var(--bg-base)' }}>
+      <div className="flex justify-end px-3 py-1" style={{ backgroundColor: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          aria-pressed={showSizeCol}
+          onClick={() => setShowSizeCol(v => !v)}
+          className="text-xs px-2 py-0.5 rounded"
+          style={{
+            color: showSizeCol ? 'var(--text-primary)' : 'var(--text-secondary)',
+            backgroundColor: showSizeCol ? 'color-mix(in srgb, var(--accent) 15%, transparent)' : 'transparent',
+            border: '1px solid var(--border)',
+          }}
+        >
+          Size ×
+        </button>
+      </div>
       <table className="w-full border-collapse text-sm" style={{ color: 'var(--text-primary)' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)', backgroundColor: 'var(--bg-surface)' }}>
@@ -115,6 +131,9 @@ export function Journal({ trades }: JournalProps) {
             <HeaderCell label="P&L (£)"  sortKey="pnlAbsolute" active={sortKey} dir={sortDir} onSort={handleSort} />
             <HeaderCell label="P&L (%)"  sortKey={undefined}   active={sortKey} dir={sortDir} onSort={handleSort} />
             <HeaderCell label="Duration" sortKey="durationMs"  active={sortKey} dir={sortDir} onSort={handleSort} />
+            {showSizeCol && (
+              <HeaderCell label="Size ×" sortKey={undefined} active={sortKey} dir={sortDir} onSort={handleSort} />
+            )}
             <HeaderCell label="Signal"   sortKey={undefined}   active={sortKey} dir={sortDir} onSort={handleSort} />
           </tr>
         </thead>
@@ -159,6 +178,11 @@ export function Journal({ trades }: JournalProps) {
                 <td className="px-3 py-2 whitespace-nowrap" style={MONO}>
                   {formatDuration(trade.durationMs)}
                 </td>
+                {showSizeCol && (
+                  <td className="px-3 py-2 whitespace-nowrap text-xs" style={{ ...MONO, color: 'var(--text-secondary)' }}>
+                    {trade.sizeMultiplier.toFixed(2)}
+                  </td>
+                )}
                 <td
                   className="px-3 py-2 text-xs max-w-xs truncate"
                   title={trade.signalReason}

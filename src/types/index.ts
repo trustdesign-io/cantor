@@ -26,6 +26,8 @@ export interface Trade {
   pnlPercent: number  // P&L as a percentage of entry value
   durationMs: number  // Trade duration in milliseconds
   signalReason: string // Human-readable signal description (e.g. "EMA 9 crossed above EMA 21, RSI=45")
+  /** Position size multiplier applied at entry — 1.0 means full balance, 0.5 means half, etc. */
+  sizeMultiplier: number
 }
 
 /** Signal emitted by the strategy engine */
@@ -89,4 +91,6 @@ export interface Position {
   entryTime: number  // Unix timestamp (ms)
   size: number       // Amount of base currency held
   unrealisedPnl: number
+  /** Size multiplier applied at entry — preserved for accurate P&L accounting */
+  sizeMultiplier: number
 }
