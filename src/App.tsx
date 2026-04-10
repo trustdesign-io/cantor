@@ -62,7 +62,7 @@ function AppContent({ pair, onPairChange }: { pair: Pair; onPairChange: (p: Pair
         {activeTab === 'live' && (
           <LiveTab pair={pair} candles={candles} signal={signal} position={position} balance={balance} />
         )}
-        {activeTab === 'backtest' && <BacktestTab />}
+        {activeTab === 'backtest' && <BacktestTab pair={pair} />}
         {activeTab === 'journal' && <JournalTab trades={trades} />}
         {activeTab === 'performance' && <PerformanceTab trades={trades} />}
       </main>
