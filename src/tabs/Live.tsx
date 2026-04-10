@@ -1,12 +1,17 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
 import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
 import { StablecoinPanel } from '@/components/StablecoinPanel'
+import { CommentatorPanel } from '@/components/CommentatorPanel'
+import { ema } from '@/indicators/ema'
+import { rsi } from '@/indicators/rsi'
+import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
 import type { EtfFlowEntry } from '@/data/etfFlows'
 import type { StablecoinSupplyData } from '@/data/stablecoinSupply'
 import type { Candle, Pair, Position, Signal, SignalEvent, SignalResult } from '@/types'
+import type { DashboardSnapshot } from '@/types/commentary'
 
 interface LiveTabProps {
   pair: Pair
@@ -21,9 +26,13 @@ interface LiveTabProps {
   etfFlows: readonly EtfFlowEntry[] | null
   /** Last 7 days of stablecoin supply data, or null when unavailable */
   stablecoinData: StablecoinSupplyData | null
+  /** Current perpetual funding rate, or null while loading */
+  fundingRate: number | null
+  /** Crypto Fear & Greed Index 0–100, or null while loading */
+  fearGreedIndex: number | null
 }
 
-export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout, etfFlows, stablecoinData }: LiveTabProps) {
+export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout, etfFlows, stablecoinData, fundingRate, fearGreedIndex }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
@@ -74,6 +83,30 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
     lastVetoRef.current = undefined
   }, [pair])
 
+  // Build a stable DashboardSnapshot for the commentator on each candle update.
+  // Indicator values are computed from the candle closes — same computation as
+  // useLiveStrategy, kept here to avoid exposing internals from that hook.
+  const snapshot = useMemo<DashboardSnapshot>(() => {
+    const closes = candles.map(c => c.close)
+    const emaFastArr = ema(closes, EMA_FAST_PERIOD)
+    const emaSlowArr = ema(closes, EMA_SLOW_PERIOD)
+    const rsiArr = rsi(closes, RSI_PERIOD)
+    const n = closes.length
+    return {
+      signal,
+      baseSignal: signalResult.baseSignal,
+      vetoedBy: signalResult.vetoedBy,
+      vetoReason: signalResult.reason,
+      emaFast: n > 0 ? (emaFastArr[n - 1] ?? NaN) : NaN,
+      emaSlow: n > 0 ? (emaSlowArr[n - 1] ?? NaN) : NaN,
+      rsi: n > 0 ? (rsiArr[n - 1] ?? NaN) : NaN,
+      candleClose: n > 0 ? (closes[n - 1] ?? NaN) : NaN,
+      position,
+      fundingRate,
+      fearGreedIndex,
+    }
+  }, [candles, signal, signalResult, position, fundingRate, fearGreedIndex])
+
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
       {macroBlackout !== null && (
@@ -111,6 +144,7 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
           <div className="flex-1 overflow-hidden">
             <SignalLog events={events} position={position} balance={balance} />
           </div>
+          <CommentatorPanel snapshot={snapshot} />
           <EtfFlowsPanel flows={etfFlows} />
           <StablecoinPanel data={stablecoinData} />
         </div>

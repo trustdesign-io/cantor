@@ -26,6 +26,8 @@ const DEFAULT_PROPS = {
   macroBlackout: null,
   etfFlows: null,
   stablecoinData: null,
+  fundingRate: null,
+  fearGreedIndex: null,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -43,7 +45,8 @@ describe('LiveTab', () => {
 
   it('renders the signal log with initial state (no signals, full balance)', () => {
     render(<LiveTab {...DEFAULT_PROPS} />)
-    expect(screen.getByRole('log')).toBeInTheDocument()
+    // Multiple log roles exist (SignalLog + CommentatorPanel) — check by label
+    expect(screen.getByRole('log', { name: 'Live signal events' })).toBeInTheDocument()
     expect(screen.getByText('No signals yet')).toBeInTheDocument()
     expect(screen.getByText('No open position')).toBeInTheDocument()
     expect(screen.getByText('10,000.00 USDT')).toBeInTheDocument()
