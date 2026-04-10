@@ -3,7 +3,7 @@
  *
  * Fetches the current funding rate from Binance and Bybit public endpoints.
  * Both APIs are public (no auth required) and include CORS headers.
- * If one exchange errors, the module falls back to the other and logs the failure.
+ * If one exchange errors, the module falls back to the other silently.
  * If both fail, the module returns null so the filter can pass rather than veto.
  */
 
@@ -24,7 +24,20 @@ interface CacheEntry {
   fetchedAt: number
 }
 
+/**
+ * Module-level singleton cache shared across all callers.
+ * This is intentional for a local-only app: there is exactly one instance of the
+ * data-fetching hook and it serves the entire app. The singleton avoids duplicate
+ * network requests when multiple components read the same exchange pair.
+ *
+ * For testing: call `clearFundingRateCache()` in beforeEach to reset state.
+ */
 const cache = new Map<string, CacheEntry>()
+
+/** Reset the cache — call in test beforeEach to avoid cross-test contamination. */
+export function clearFundingRateCache(): void {
+  cache.clear()
+}
 
 function isFresh(entry: CacheEntry): boolean {
   return Date.now() - entry.fetchedAt < CACHE_TTL_MS
@@ -69,7 +82,7 @@ async function fetchBybitFunding(symbol: string): Promise<FundingRateData> {
 
 /**
  * Fetch the current perpetual funding rate for a symbol from Binance or Bybit.
- * Returns null if both exchanges fail (so filters can pass rather than veto on missing data).
+ * Returns null if the exchange fails (so filters can pass rather than veto on missing data).
  */
 export async function fetchFundingRate(
   exchange: 'binance' | 'bybit',
@@ -85,8 +98,9 @@ export async function fetchFundingRate(
       : await fetchBybitFunding(pair)
     cache.set(key, { data, fetchedAt: Date.now() })
     return data
-  } catch (err) {
-    console.error(`[fundingRates] ${exchange} fetch failed for ${pair}:`, err)
+  } catch {
+    // Silently fall back — a failed exchange should not block signal evaluation.
+    // The filter passes (ok: true) when fundingRate is absent.
     cache.set(key, { data: null, fetchedAt: Date.now() })
     return null
   }
