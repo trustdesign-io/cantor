@@ -1,11 +1,14 @@
 import { test, expect } from '@playwright/test'
 
-test('home page loads', async ({ page }) => {
+test('app loads and shows Cantor brand name', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'starter-local' })).toBeVisible()
+  await expect(page.getByText('Cantor')).toBeVisible()
 })
 
-test('about page loads', async ({ page }) => {
-  await page.goto('/about')
-  await expect(page.getByRole('heading', { name: 'About' })).toBeVisible()
+test('all four tabs are visible', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Live' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Backtest' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Journal' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Performance' })).toBeVisible()
 })
