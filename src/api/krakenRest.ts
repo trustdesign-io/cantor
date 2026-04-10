@@ -9,8 +9,10 @@ const PAIR_MAP: Record<Pair, string> = {
   'ETH/USDT': 'ETHUSDT',
 }
 
-/** Shape of one OHLC row returned by Kraken: [time, etime, open, high, low, close, vwap, volume, count] */
-type KrakenOhlcRow = [number, number, string, string, string, string, string, string, number]
+// Kraken REST /0/public/OHLC returns 8-element rows: [time, open, high, low, close, vwap, volume, count].
+// This is different from the WS v1 ohlc payload, which has 9 elements including etime.
+// Do not unify them — they are genuinely different shapes.
+type KrakenOhlcRow = [number, string, string, string, string, string, string, number]
 
 /** Shape of the Kraken OHLC response envelope. */
 interface KrakenOhlcResponse {
@@ -56,7 +58,7 @@ export async function fetchOHLC(pair: Pair, interval: number, since?: number): P
   if (!rows) return []
 
   const candles: Candle[] = []
-  for (const [time, , openStr, highStr, lowStr, closeStr, , volumeStr] of rows) {
+  for (const [time, openStr, highStr, lowStr, closeStr, , volumeStr] of rows) {
     const open   = parseFloat(openStr)
     const high   = parseFloat(highStr)
     const low    = parseFloat(lowStr)
