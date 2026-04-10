@@ -71,7 +71,6 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
       {macroBlackout !== null && (
         <div
           role="alert"
-          aria-live="polite"
           className="flex items-center justify-center gap-2 px-4 py-1.5 text-sm font-medium"
           style={{
             backgroundColor: 'color-mix(in srgb, #f59e0b 18%, var(--bg-surface))',
@@ -84,22 +83,22 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
         </div>
       )}
       <div className="flex flex-1 overflow-hidden">
-      {/* Charts — left 2/3, stacked vertically */}
-      <div className="flex flex-col" style={{ flex: '2 1 0', minWidth: 0 }}>
-        {/* Price + EMA chart — 75% of chart column height */}
-        <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
-          <PriceChart candles={candles} />
+        {/* Charts — left 2/3, stacked vertically */}
+        <div className="flex flex-col" style={{ flex: '2 1 0', minWidth: 0 }}>
+          {/* Price + EMA chart — 75% of chart column height */}
+          <div style={{ flex: '3 1 0', minHeight: 0, borderBottom: '1px solid var(--border)' }}>
+            <PriceChart candles={candles} />
+          </div>
+          {/* RSI panel — 25% of chart column height */}
+          <div style={{ flex: '1 1 0', minHeight: 0 }}>
+            <RsiChart candles={candles} />
+          </div>
         </div>
-        {/* RSI panel — 25% of chart column height */}
-        <div style={{ flex: '1 1 0', minHeight: 0 }}>
-          <RsiChart candles={candles} />
-        </div>
-      </div>
 
-      {/* Signal log — right 1/3 */}
-      <div style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}>
-        <SignalLog events={events} position={position} balance={balance} />
-      </div>
+        {/* Signal log — right 1/3 */}
+        <div style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}>
+          <SignalLog events={events} position={position} balance={balance} />
+        </div>
       </div>
     </div>
   )

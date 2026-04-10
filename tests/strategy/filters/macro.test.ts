@@ -6,6 +6,24 @@ import { MACRO_WINDOWS } from '@/data/macroCalendar'
 const FIRST = MACRO_WINDOWS[0]
 const ANNOUNCEMENT = FIRST.announcementMs
 
+// ── Absolute UTC correctness ───────────────────────────────────────────────────
+// These tests verify the timezone conversion is machine-independent.
+// CPI 2026-04-14 08:30 ET (EDT = UTC−4) → 12:30 UTC
+
+describe('MACRO_WINDOWS — absolute UTC timestamps', () => {
+  it('CPI 2026-04-14 08:30 ET resolves to 12:30:00 UTC', () => {
+    const cpi = MACRO_WINDOWS.find(w => w.event === 'CPI')
+    expect(cpi).toBeDefined()
+    expect(cpi!.announcementMs).toBe(new Date('2026-04-14T12:30:00Z').getTime())
+  })
+
+  it('FOMC 2026-05-07 14:00 ET resolves to 18:00:00 UTC', () => {
+    const fomc = MACRO_WINDOWS.find(w => w.event === 'FOMC')
+    expect(fomc).toBeDefined()
+    expect(fomc!.announcementMs).toBe(new Date('2026-05-07T18:00:00Z').getTime())
+  })
+})
+
 describe('isMacroBlackoutAt — inside window', () => {
   it('vetoes at the exact announcement time', () => {
     const result = isMacroBlackoutAt(ANNOUNCEMENT)
