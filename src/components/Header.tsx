@@ -8,11 +8,26 @@ interface HeaderProps {
   price: number | null
   /** 24-hour change percent — null while connecting */
   change24h: number | null
+  /** Average perpetual funding rate as a decimal (e.g. 0.001 = 0.1% per 8h) — null while loading */
+  fundingRate?: number | null
 }
 
 const PAIRS: Pair[] = ['XBT/USDT', 'ETH/USDT']
 
-export function Header({ pair, onPairChange, price, change24h }: HeaderProps) {
+/** Format funding rate as a signed percentage string (e.g. "+0.0100%") */
+function formatFunding(rate: number): string {
+  const pct = (rate * 100).toFixed(4)
+  return rate >= 0 ? `+${pct}%` : `${pct}%`
+}
+
+/** Funding colour: positive → red (longs crowded), negative → green (shorts crowded), near-zero → muted */
+function fundingColor(rate: number): string {
+  if (rate > 0.0005) return 'var(--loss)'    // positive and meaningful — longs crowded
+  if (rate < -0.0002) return 'var(--win)'    // negative — shorts crowded
+  return 'var(--text-secondary)'             // near-zero — neutral
+}
+
+export function Header({ pair, onPairChange, price, change24h, fundingRate }: HeaderProps) {
   const changePositive = change24h !== null && change24h >= 0
 
   return (
@@ -52,8 +67,26 @@ export function Header({ pair, onPairChange, price, change24h }: HeaderProps) {
         </div>
       </div>
 
-      {/* Live price */}
+      {/* Live price + funding rate */}
       <div className="flex items-center gap-4">
+        {/* Perpetual funding rate badge */}
+        {fundingRate !== null && fundingRate !== undefined && (
+          <div
+            className="flex items-center gap-1 text-xs"
+            title="Average perpetual funding rate (Binance + Bybit) per 8-hour period. Positive = longs paying shorts. Negative = shorts paying longs."
+          >
+            <span style={{ color: 'var(--text-secondary)' }}>Funding</span>
+            <span
+              className="mono"
+              style={{ color: fundingColor(fundingRate) }}
+              aria-label={`Funding rate ${formatFunding(fundingRate)} per 8 hours`}
+            >
+              {formatFunding(fundingRate)}
+            </span>
+            <span style={{ color: 'var(--text-secondary)' }}>/8h</span>
+          </div>
+        )}
+
         <span
           className="mono text-lg font-medium"
           style={{ color: 'var(--text-primary)' }}

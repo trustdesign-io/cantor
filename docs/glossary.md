@@ -121,3 +121,33 @@ The act of a filter downgrading a non-HOLD base signal to HOLD. When a veto occu
 **Why it matters:** Without explicit veto logging, a suppressed trade is invisible — you can't distinguish "strategy said HOLD" from "strategy said BUY but a filter blocked it". Cantor surfaces both in the Signal Log.
 
 **In Cantor:** A vetoed event appears in the Signal Log with muted styling and a "vetoed: <reason>" note. The filter contribution report (Phase 9) uses veto data to measure each filter's impact on backtested performance.
+
+---
+
+## Funding rate
+
+In perpetual futures markets, the funding rate is a recurring payment exchanged between long and short holders, typically every 8 hours. When the rate is positive, longs pay shorts; when negative, shorts pay longs.
+
+**Why it matters:** Funding rate is a proxy for crowd positioning. Extreme positive funding means leveraged longs are paying to hold positions — the market is crowded on the long side and mean-reversion shorts have historical edge. Extreme negative funding signals crowded shorts.
+
+**In Cantor:** The average funding rate from Binance and Bybit is displayed in the app header. The `isFundingExtreme` filter vetoes new long positions when average funding exceeds +0.1% per 8 hours, and new short positions when it falls below -0.05% per 8 hours.
+
+---
+
+## Perpetual futures
+
+Derivative contracts that track the spot price of an asset with no expiry date. They use a funding mechanism to keep the contract price anchored to spot.
+
+**Why it matters:** Perpetual futures represent the dominant trading instrument for crypto retail and institutional traders. Funding rate data from perp markets provides insight into crowd positioning that spot price alone cannot.
+
+**In Cantor:** Funding rate data is fetched from the Binance (`fapi.binance.com`) and Bybit (`api.bybit.com`) public APIs, no authentication required.
+
+---
+
+## Basis
+
+The difference between the perpetual futures price and the spot price. Related to funding rate: a positive basis (futures trading above spot) tends to produce positive funding as long holders pay to maintain their position.
+
+**Why it matters:** When basis is extreme, it can indicate speculative excess. Basis compression (futures price falling toward spot) often accompanies deleveraging events.
+
+**In Cantor:** Basis is not currently tracked directly — funding rate is used as the practical proxy since it is more directly actionable.
