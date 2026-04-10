@@ -66,11 +66,36 @@ export async function streamChat({
   const decoder = new TextDecoder()
   let fullText = ''
   let buffer = ''
+  let doneCalled = false
+
+  const callOnDone = () => {
+    if (!doneCalled && fullText) {
+      doneCalled = true
+      onDone(fullText)
+    }
+  }
 
   try {
     while (true) {
       const { done, value } = await reader.read()
-      if (done) break
+
+      if (done) {
+        // Flush any remaining buffered content before closing
+        if (buffer.trim()) {
+          try {
+            const chunk = JSON.parse(buffer.trim()) as { message?: { content?: string }; done?: boolean }
+            const delta = chunk.message?.content ?? ''
+            if (delta) {
+              fullText += delta
+              onToken(delta)
+            }
+          } catch {
+            // Malformed partial line — ignore
+          }
+        }
+        callOnDone()
+        break
+      }
 
       buffer += decoder.decode(value, { stream: true })
 
@@ -98,14 +123,11 @@ export async function streamChat({
         }
 
         if (chunk.done) {
-          onDone(fullText)
+          callOnDone()
           return
         }
       }
     }
-
-    // Stream ended without a `done: true` chunk — still call onDone
-    if (fullText) onDone(fullText)
   } finally {
     reader.releaseLock()
   }

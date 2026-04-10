@@ -47,19 +47,22 @@ export function detectEvents(
 
   // ── filter-veto ──────────────────────────────────────────────────────────
   // Fire when a new filter veto occurs (vetoedBy changed or reason changed)
+  const { vetoedBy, vetoReason } = next
   if (
-    next.vetoedBy !== undefined &&
-    next.vetoReason !== undefined &&
+    vetoedBy !== undefined &&
+    vetoReason !== undefined &&
     next.baseSignal !== 'HOLD' &&
-    (next.vetoedBy !== prev.vetoedBy || next.vetoReason !== prev.vetoReason)
+    (vetoedBy !== prev.vetoedBy || vetoReason !== prev.vetoReason)
   ) {
+    // baseSignal is narrowed to 'BUY' | 'SELL' by the !== 'HOLD' check above
+    const baseSignal = next.baseSignal
     events.push({
       kind: 'filter-veto',
       timestamp: now,
       candleClose: close,
-      baseSignal: next.baseSignal as Exclude<typeof next.baseSignal, 'HOLD'>,
-      vetoedBy: next.vetoedBy,
-      reason: next.vetoReason,
+      baseSignal,
+      vetoedBy,
+      reason: vetoReason,
       fundingRate: next.fundingRate,
       fearGreedIndex: next.fearGreedIndex,
     })
@@ -150,8 +153,10 @@ export function detectEvents(
 
   // ── position-close ───────────────────────────────────────────────────────
   if (prev.position !== null && next.position === null) {
-    const pnlPercent =
-      ((close - prev.position.entryPrice) / prev.position.entryPrice) * 100
+    const rawPnlPct = ((close - prev.position.entryPrice) / prev.position.entryPrice) * 100
+    // Short positions (size < 0) profit when price falls — invert the sign
+    const isShort = prev.position.size < 0
+    const pnlPercent = isShort ? -rawPnlPct : rawPnlPct
     events.push({
       kind: 'position-close',
       timestamp: now,

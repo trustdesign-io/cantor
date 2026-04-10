@@ -211,6 +211,44 @@ describe('detectEvents', () => {
     expect(events.some(e => e.kind === 'position-open' || e.kind === 'position-close')).toBe(false)
   })
 
+  it('reports negative pnlPercent for a short position that closed at a loss (price rose)', () => {
+    const entryPrice = 50_000
+    // Short entered at 50000, price rose to 51000 — a loss for the short
+    const prev = makeSnapshot({
+      position: {
+        pair: 'XBT/USDT',
+        entryPrice,
+        entryTime: Date.now() - 3600_000,
+        size: -0.01, // negative = short
+        unrealisedPnl: -10,
+        sizeMultiplier: 1,
+      },
+      candleClose: 51_000,
+    })
+    const next = makeSnapshot({ position: null, candleClose: 51_000 })
+    const events = detectEvents(prev, next)
+    const closeEvent = events.find(e => e.kind === 'position-close')
+    expect(closeEvent?.kind === 'position-close' && closeEvent.pnlPercent).toBeLessThan(0)
+  })
+
+  it('can return multiple events from a single snapshot transition', () => {
+    // Golden cross AND RSI entering overbought simultaneously
+    const prev = makeSnapshot({
+      emaFast: 48_000,
+      emaSlow: 49_000,
+      rsi: RSI_OVERBOUGHT - 1,
+    })
+    const next = makeSnapshot({
+      emaFast: 50_000,
+      emaSlow: 49_000,
+      rsi: RSI_OVERBOUGHT,
+    })
+    const events = detectEvents(prev, next)
+    expect(events.some(e => e.kind === 'ema-cross')).toBe(true)
+    expect(events.some(e => e.kind === 'rsi-zone-enter')).toBe(true)
+    expect(events.length).toBeGreaterThanOrEqual(2)
+  })
+
   // ── funding-threshold-cross ───────────────────────────────────────────────
 
   it('fires funding-threshold-cross into-extreme when rate crosses long threshold', () => {
