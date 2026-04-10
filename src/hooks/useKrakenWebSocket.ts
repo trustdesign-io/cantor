@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { z } from 'zod'
+import { krakenWsManager } from '@/lib/krakenWsManager'
 import type { Pair } from '@/types'
 
 const KrakenTickerPayload = z.object({
@@ -18,20 +19,14 @@ export interface TickerState {
   connected: boolean
 }
 
-/** Kraken v1 WebSocket endpoint — public, no auth required */
-const WS_URL = 'wss://ws.kraken.com/'
-
-/** How long to wait before a reconnect attempt after an unexpected disconnect */
-const RECONNECT_DELAY_MS = 3_000
-
 const DISCONNECTED: TickerState = { price: null, change24h: null, connected: false }
 
 /**
- * Connects to the Kraken public WebSocket, subscribes to the ticker channel
- * for `pair`, and returns live price + 24h change %.
+ * Subscribes to the Kraken ticker channel for `pair` via the shared
+ * WebSocket manager, and returns live price + 24h change %.
  *
- * Reconnects automatically after disconnects. Switches subscription cleanly
- * when `pair` changes — no stale data from the previous pair leaks through.
+ * The underlying connection is shared with other hooks (e.g. useKrakenOhlc).
+ * Resets cleanly when `pair` changes — no stale data from the previous pair.
  */
 export function useKrakenWebSocket(pair: Pair): TickerState {
   // Track which pair state currently belongs to so we can reset during render
@@ -47,85 +42,23 @@ export function useKrakenWebSocket(pair: Pair): TickerState {
     setTickerState(DISCONNECTED)
   }
 
-  /** Reference to the active WebSocket so closures can compare identity */
-  const wsRef = useRef<WebSocket | null>(null)
-  /** Pending reconnect timer — cancelled on pair change or unmount */
-  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** Set to false during cleanup so stale onclose handlers don't reconnect */
-  const shouldReconnectRef = useRef(true)
-
   useEffect(() => {
-    shouldReconnectRef.current = true
-
-    // Function declaration is hoisted within this effect closure, so
-    // the onclose handler can safely reference it without TDZ issues
-    function connect() {
-      // Tear down any existing connection before opening a new one
-      if (wsRef.current) {
-        wsRef.current.close()
-        wsRef.current = null
-      }
-
-      const ws = new WebSocket(WS_URL)
-      wsRef.current = ws
-
-      ws.onopen = () => {
-        setTickerState((s) => ({ ...s, connected: true }))
-        ws.send(
-          JSON.stringify({
-            event: 'subscribe',
-            pair: [pair],
-            subscription: { name: 'ticker' },
-          })
-        )
-      }
-
-      ws.onmessage = (event: MessageEvent<string>) => {
-        try {
-          const data: unknown = JSON.parse(event.data)
-          // Kraken v1 ticker updates arrive as arrays: [channelID, {...}, "ticker", "XBT/USDT"]
-          // System events (heartbeat, subscriptionStatus) are plain objects — skip them.
-          if (!Array.isArray(data) || data[2] !== 'ticker') return
-
-          const parsed = KrakenTickerPayload.safeParse(data[1])
-          if (!parsed.success) return
-          const price = parseFloat(parsed.data.c[0])
-          const openPrice = parseFloat(parsed.data.o)
-          const change24h = openPrice > 0 ? ((price - openPrice) / openPrice) * 100 : 0
-
-          setTickerState((s) => ({ ...s, price, change24h }))
-        } catch {
-          // JSON parse errors are safe to ignore — should not occur in normal operation
-        }
-      }
-
-      ws.onclose = () => {
-        setTickerState((s) => ({ ...s, connected: false }))
-        // Only schedule a reconnect if this socket is still the active one and
-        // the hook hasn't been cleaned up (pair change or unmount)
-        if (wsRef.current === ws && shouldReconnectRef.current) {
-          reconnectTimerRef.current = setTimeout(connect, RECONNECT_DELAY_MS)
-        }
-      }
-
-      ws.onerror = () => {
-        // onerror always precedes onclose — reconnect logic lives in onclose
-      }
-    }
-
-    connect()
-
-    return () => {
-      shouldReconnectRef.current = false
-      if (reconnectTimerRef.current !== null) {
-        clearTimeout(reconnectTimerRef.current)
-        reconnectTimerRef.current = null
-      }
-      if (wsRef.current) {
-        wsRef.current.close()
-        wsRef.current = null
-      }
-    }
+    const unsubscribe = krakenWsManager.subscribe({
+      channel: 'ticker',
+      pair,
+      onConnected: (connected) => {
+        setTickerState((s) => ({ ...s, connected }))
+      },
+      onMessage: (payload) => {
+        const parsed = KrakenTickerPayload.safeParse(payload)
+        if (!parsed.success) return
+        const price = parseFloat(parsed.data.c[0])
+        const openPrice = parseFloat(parsed.data.o)
+        const change24h = openPrice > 0 ? ((price - openPrice) / openPrice) * 100 : 0
+        setTickerState((s) => ({ ...s, price, change24h }))
+      },
+    })
+    return unsubscribe
   }, [pair])
 
   return tickerState
