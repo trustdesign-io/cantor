@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
+import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
+import type { EtfFlowEntry } from '@/data/etfFlows'
 import type { Candle, Pair, Position, Signal, SignalEvent, SignalResult } from '@/types'
 
 interface LiveTabProps {
@@ -13,9 +15,11 @@ interface LiveTabProps {
   balance: number
   /** Active macro blackout event name (e.g. 'CPI', 'FOMC'), or null when clear */
   macroBlackout: string | null
+  /** Last 14 days of BTC ETF net flows, or null when unavailable */
+  etfFlows: readonly EtfFlowEntry[] | null
 }
 
-export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout }: LiveTabProps) {
+export function LiveTab({ pair, candles, signal, signalResult, position, balance, macroBlackout, etfFlows }: LiveTabProps) {
   // Accumulate signal events from the strategy.
   // Append when signal changes away from HOLD; reset the gate when it returns to HOLD
   // so the next non-HOLD is captured as a fresh entry.
@@ -95,9 +99,15 @@ export function LiveTab({ pair, candles, signal, signalResult, position, balance
           </div>
         </div>
 
-        {/* Signal log — right 1/3 */}
-        <div style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}>
-          <SignalLog events={events} position={position} balance={balance} />
+        {/* Signal log + ETF flows panel — right 1/3 */}
+        <div
+          className="flex flex-col"
+          style={{ flex: '1 1 0', minWidth: 240, overflow: 'hidden' }}
+        >
+          <div className="flex-1 overflow-hidden">
+            <SignalLog events={events} position={position} balance={balance} />
+          </div>
+          <EtfFlowsPanel flows={etfFlows} />
         </div>
       </div>
     </div>

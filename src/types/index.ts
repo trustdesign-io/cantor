@@ -43,6 +43,11 @@ export interface FilterContext {
   fundingRate?: number
   /** Crypto Fear & Greed Index 0–100 */
   fearGreedIndex?: number
+  /**
+   * Last N days of BTC spot ETF net flows (USD millions), oldest first.
+   * Used by the optional `isEtfFlowNegativeStreak` filter.
+   */
+  etfFlows?: ReadonlyArray<{ date: string; netFlowUsd: number; byFund: Record<string, number> }>
 }
 
 /**

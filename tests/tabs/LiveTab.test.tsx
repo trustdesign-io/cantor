@@ -24,6 +24,7 @@ const DEFAULT_PROPS = {
   position: null,
   balance: 10_000,
   macroBlackout: null,
+  etfFlows: null,
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────

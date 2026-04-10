@@ -181,3 +181,23 @@ A composite sentiment indicator for the crypto market, published daily by altern
 **Caveats:** The index is a composite and lagging indicator. It reflects how people *feel* about the market, not what the market is actually doing. The correlation with future price direction is real at extremes but noisy and regime-dependent — do not treat it as a reliable standalone signal.
 
 **In Cantor:** The current index value is displayed as a small badge in the header. The `isFearGreedExtreme` filter vetoes new long positions when the index is above 80 (extreme greed, longs at risk of sentiment reversal) and new short positions when it is below 20 (extreme fear, shorts at risk of bounce).
+
+---
+
+## Spot ETF
+
+An exchange-traded fund that holds the underlying asset directly, rather than futures contracts or derivatives.
+
+**Why it matters:** US spot Bitcoin ETFs (approved in January 2024) allow institutional and retail investors to gain BTC exposure through regulated brokerage accounts. Their daily inflows and outflows directly move the BTC spot price — large institutional purchases push prices up, redemptions push prices down.
+
+**In Cantor:** The ETF Flows panel on the Live tab shows the last 14 days of US BTC spot ETF net flows, sourced from SoSoValue. The optional `isEtfFlowNegativeStreak` filter vetoes new long positions when net flows have been negative for three or more consecutive days.
+
+---
+
+## Net flows (ETF)
+
+The difference between new capital flowing into an ETF (creations) and capital flowing out (redemptions) on a given day. Positive net flows mean more investors are buying the ETF than selling; negative net flows mean more are redeeming.
+
+**Why it matters:** For spot BTC ETFs, net flows are a near-real-time indicator of institutional demand. A single day of outflows is common and unremarkable. A streak of three or more consecutive negative-flow days has historically correlated with BTC price weakness in the 2024–2025 period, as it indicates sustained institutional selling.
+
+**In Cantor:** Net flows are displayed in USD millions per day. The bar chart uses green for positive days (inflow) and red for negative days (outflow).
