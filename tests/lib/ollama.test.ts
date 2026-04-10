@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { streamChat } from '@/lib/ollama'
+import { streamChat, listModels } from '@/lib/ollama'
 
 describe('streamChat', () => {
   beforeEach(() => {
@@ -118,5 +118,57 @@ describe('streamChat', () => {
     await streamChat({ system: 's', user: 'u', onToken: d => tokens.push(d), onDone: () => {} })
 
     expect(tokens).toEqual(['ok'])
+  })
+})
+
+describe('listModels', () => {
+  beforeEach(() => {
+    vi.spyOn(globalThis, 'fetch')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('parses a valid /api/tags response and returns model names', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ models: [{ name: 'llama3.2:3b' }, { name: 'qwen2.5:7b' }] }),
+        { status: 200 }
+      )
+    )
+    const models = await listModels()
+    expect(models).toEqual(['llama3.2:3b', 'qwen2.5:7b'])
+  })
+
+  it('returns [] when Ollama returns a non-200 status', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 503 }))
+    const models = await listModels()
+    expect(models).toEqual([])
+  })
+
+  it('returns [] when fetch rejects (Ollama unreachable)', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('ECONNREFUSED'))
+    const models = await listModels()
+    expect(models).toEqual([])
+  })
+
+  it('returns [] when response body is not the expected shape', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ something: 'else' }), { status: 200 })
+    )
+    const models = await listModels()
+    expect(models).toEqual([])
+  })
+
+  it('filters out entries that lack a name field', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ models: [{ name: 'llama3.2:3b' }, { noName: true }, null] }),
+        { status: 200 }
+      )
+    )
+    const models = await listModels()
+    expect(models).toEqual(['llama3.2:3b'])
   })
 })

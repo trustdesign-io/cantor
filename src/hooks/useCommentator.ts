@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { detectEvents } from '@/lib/detectEvents'
-import { streamChat, OLLAMA_MODEL } from '@/lib/ollama'
+import { streamChat } from '@/lib/ollama'
+import { getPreferredModel } from '@/lib/modelPreference'
 import type { DashboardSnapshot, CommentaryEntry, CommentaryEvent } from '@/types/commentary'
 
 /** System prompt used for all commentary generations */
@@ -177,6 +178,7 @@ export function useCommentator(snapshot: DashboardSnapshot): UseCommentatorResul
 
     try {
       await streamChat({
+        model: getPreferredModel(),
         system: COMMENTARY_SYSTEM_PROMPT,
         user: prompt,
         signal: controller.signal,
@@ -251,5 +253,5 @@ export function useCommentator(snapshot: DashboardSnapshot): UseCommentatorResul
 
   const clearEntries = useCallback(() => setEntries([]), [])
 
-  return { entries, clearEntries, model: OLLAMA_MODEL }
+  return { entries, clearEntries, model: getPreferredModel() }
 }
