@@ -90,7 +90,7 @@ describe('useLiveStrategy', () => {
     expect(result.current.balance).toBe(0)
 
     // Switch to ETH/USDT with no candles yet → state must reset
-    rerender({ pair: 'ETH/USDT', candles: [] })
+    rerender({ pair: 'ETH/USDT' as unknown as typeof PAIR, candles: [] })
     expect(result.current.signal).toBe('HOLD')
     expect(result.current.balance).toBe(INITIAL_BALANCE)
     expect(result.current.position).toBeNull()
