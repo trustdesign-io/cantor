@@ -103,3 +103,17 @@
 *:focus-within > .teach-me-btn {
   opacity: 1;
 }
+
+/* ── Data type scale ─────────────────────────────────────────────────────── */
+/* mono-sm: dense tables, secondary values (11px JetBrains Mono)             */
+/* mono-md: numbers the eye lands on — prices, P&L (13px JetBrains Mono)     */
+.mono-sm {
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.mono-md {
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+}
