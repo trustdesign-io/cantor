@@ -9,6 +9,10 @@ import { StablecoinPanel } from '@/components/StablecoinPanel'
 import { CommentatorPanel } from '@/components/CommentatorPanel'
 import { TeachMeButton } from '@/components/TeachMeButton'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { NewsLane } from '@/components/NewsLane'
+import { useCryptoPanic } from '@/hooks/useCryptoPanic'
+import { useGdeltNews } from '@/hooks/useGdeltNews'
+import { mergeAndSortEvents } from '@/lib/newsFilters'
 import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
 import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
@@ -180,6 +184,20 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
 
   // Interval in ms for the heartbeat's staleness threshold.
   const intervalMs = interval * 60_000
+
+  // News data hooks — aggregate events from CryptoPanic and GDELT.
+  const {
+    events: cryptoEvents,
+    loading: cryptoLoading,
+    hasKey: hasCryptoPanicKey,
+    setKey: setCryptoPanicKey,
+  } = useCryptoPanic(pair)
+  const { events: gdeltEvents, loading: gdeltLoading } = useGdeltNews()
+  const newsLoading = cryptoLoading || gdeltLoading
+  const allNewsEvents = useMemo(
+    () => mergeAndSortEvents(cryptoEvents, gdeltEvents),
+    [cryptoEvents, gdeltEvents]
+  )
 
   // Load persisted layouts once on mount. Using useMemo keeps the initial
   // layout stable across re-renders without triggering a state update.
@@ -383,6 +401,36 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
                   </div>
                 </div>
               </Panel>
+              <Separator
+                aria-label="Resize RSI and news lane"
+                style={vSeparatorStyle}
+              />
+              {/* News lane */}
+              <Panel id="news" defaultSize={15} minSize={10} style={panelFillStyle}>
+                <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                  {!hasCryptoPanicKey && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 8,
+                        zIndex: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <CryptoPanicKeyPrompt onSave={setCryptoPanicKey} />
+                    </div>
+                  )}
+                  <NewsLane
+                    events={allNewsEvents}
+                    candles={candles}
+                    intervalMins={interval}
+                    loading={newsLoading}
+                  />
+                </div>
+              </Panel>
             </Group>
             </div>
             </div>
@@ -420,6 +468,88 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
           </Panel>
         </Group>
       </div>
+    </div>
+  )
+}
+
+// ── CryptoPanic API key prompt ─────────────────────────────────────────────────
+
+function CryptoPanicKeyPrompt({ onSave }: { onSave: (key: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState('')
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="px-2 py-0.5 text-xs rounded"
+        style={{
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+        }}
+        title="Add CryptoPanic API key to see crypto news"
+      >
+        + CryptoPanic key
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="password"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        placeholder="CryptoPanic API key"
+        autoFocus
+        className="text-xs px-2 py-0.5 rounded"
+        style={{
+          width: 160,
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          color: 'var(--text-primary)',
+          outline: 'none',
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && value.trim()) {
+            onSave(value.trim())
+            setOpen(false)
+          } else if (e.key === 'Escape') {
+            setOpen(false)
+          }
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => { if (value.trim()) { onSave(value.trim()); setOpen(false) } }}
+        disabled={!value.trim()}
+        className="px-2 py-0.5 text-xs rounded"
+        style={{
+          backgroundColor: 'var(--accent)',
+          color: 'var(--bg-base)',
+          border: 'none',
+          cursor: value.trim() ? 'pointer' : 'not-allowed',
+          opacity: value.trim() ? 1 : 0.5,
+        }}
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="px-2 py-0.5 text-xs rounded"
+        style={{
+          backgroundColor: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+          color: 'var(--text-secondary)',
+          cursor: 'pointer',
+        }}
+      >
+        ✕
+      </button>
     </div>
   )
 }
