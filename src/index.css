@@ -29,12 +29,42 @@
     --ema-slow: #f59e0b;        /* EMA 21 line — amber baseline */
     --rsi-line: #a78bfa;        /* RSI line — purple, distinct from price channel */
 
+    /* ── Chart canvas (separate from page theme so charts stay dark in light mode) */
+    --chart-bg: #131720;        /* Same as --bg-surface in dark mode */
+    --chart-grid: #2a3040;      /* Same as --border in dark mode */
+    --chart-text: #8892a4;      /* Same as --text-secondary in dark mode */
+
     /* ── shadcn/ui compatibility aliases ─────────────────────────────────── */
     --background: var(--bg-base);
     --foreground: var(--text-primary);
     --muted: var(--bg-elevated);
     --muted-foreground: var(--text-secondary);
     --radius: 0.25rem;
+  }
+
+  /* ── Light mode palette ─────────────────────────────────────────────────── */
+  [data-theme="light"] {
+    --bg-base: #F5F2EC;         /* Warm off-white (Starlight) */
+    --bg-surface: #FFFFFF;      /* Panels/cards sit slightly brighter than the page */
+    --bg-elevated: #EAE6DD;     /* Pill/chip backgrounds */
+    --border: #D4CFC3;          /* Subtle warm border */
+    --text-primary: #1A1F2E;    /* Near-black with a touch of blue */
+    --text-secondary: #525866;
+    --text-mono: #0F1419;
+    --accent: #0B3D91;          /* NASA "meatball" blue */
+    --win: #0A7D2C;             /* Deeper green for contrast against off-white */
+    --loss: #B3261E;            /* NASA-red */
+
+    /* Chart canvas stays dark so candles stay vivid — intentionally not overriding */
+    --chart-bg: #1E2430;        /* Dark charcoal */
+    --chart-grid: #2D3441;
+    --chart-text: #D4CFC3;
+
+    /* shadcn/ui aliases */
+    --background: var(--bg-base);
+    --foreground: var(--text-primary);
+    --muted: var(--bg-elevated);
+    --muted-foreground: var(--text-secondary);
   }
 
   * {

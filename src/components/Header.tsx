@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { TeachMeButton } from '@/components/TeachMeButton'
+import { useTheme } from '@/hooks/useTheme'
 import type { FearGreedData } from '@/data/fearGreed'
 import type { OhlcInterval, Pair } from '@/types'
 
@@ -55,6 +56,7 @@ function fearGreedColor(value: number): string {
 
 export function Header({ pair, onPairChange, interval, onIntervalChange, price, change24h, fundingRate, fearGreed }: HeaderProps) {
   const changePositive = change24h !== null && change24h >= 0
+  const { theme, toggleTheme } = useTheme()
 
   return (
     <header
@@ -152,6 +154,30 @@ export function Header({ pair, onPairChange, interval, onIntervalChange, price, 
             <TeachMeButton topicId="fear-greed" currentValue={`${fearGreed.value} (${fearGreed.classification})`} />
           </div>
         )}
+
+        {/* Theme toggle */}
+        <button
+          onClick={toggleTheme}
+          aria-pressed={theme === 'light'}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="flex items-center justify-center w-7 h-7 rounded transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+          style={{
+            color: 'var(--text-secondary)',
+            outlineColor: 'var(--accent)',
+          }}
+          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+            </svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+            </svg>
+          )}
+        </button>
 
         <span
           className="mono text-lg font-medium"

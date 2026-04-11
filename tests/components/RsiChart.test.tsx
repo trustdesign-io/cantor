@@ -3,11 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { RsiChart } from '@/components/RsiChart'
 import type { Candle } from '@/types'
 
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({ theme: 'dark', toggleTheme: vi.fn(), setTheme: vi.fn() }),
+}))
+
 // ── Mock lightweight-charts ────────────────────────────────────────────────────
 // jsdom has no canvas/WebGL — createChart must be stubbed.
 
 const mockSetData = vi.fn()
 const mockCreatePriceLine = vi.fn()
+const mockApplyOptions = vi.fn()
 const mockAddSeries = vi.fn(() => ({
   setData: mockSetData,
   createPriceLine: mockCreatePriceLine,
@@ -20,6 +25,7 @@ vi.mock('lightweight-charts', () => ({
     addSeries: mockAddSeries,
     remove: mockRemove,
     resize: mockResize,
+    applyOptions: mockApplyOptions,
   })),
   LineSeries: {},
   LineStyle: { Dashed: 2 },
@@ -39,6 +45,7 @@ function makeCandles(closes: number[], baseTime = 1_700_000_000): Candle[] {
 describe('RsiChart', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockApplyOptions.mockClear()
   })
 
   it('renders a container with role=img and a descriptive aria-label', () => {

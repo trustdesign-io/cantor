@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ThemeProvider } from '@/lib/theme'
 import { Header } from '@/components/Header'
 import { TabBar } from '@/components/TabBar'
 import { LiveTab } from '@/tabs/Live'
@@ -109,10 +110,12 @@ export default function App() {
   const [interval, setOhlcInterval] = useState<OhlcInterval>(1)
 
   return (
-    <ErrorBoundary>
-      <ResizeGuard>
-        <AppContent pair={pair} onPairChange={setPair} interval={interval} onIntervalChange={setOhlcInterval} />
-      </ResizeGuard>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <ResizeGuard>
+          <AppContent pair={pair} onPairChange={setPair} interval={interval} onIntervalChange={setOhlcInterval} />
+        </ResizeGuard>
+      </ErrorBoundary>
+    </ThemeProvider>
   )
 }

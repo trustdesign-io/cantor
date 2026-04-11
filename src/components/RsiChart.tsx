@@ -4,56 +4,69 @@ import {
   LineSeries,
   LineStyle,
 } from 'lightweight-charts'
-import type { ISeriesApi, Time } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts'
 import { rsi } from '@/indicators/rsi'
 import { RSI_PERIOD, RSI_OVERBOUGHT, RSI_OVERSOLD } from '@/strategy/signals'
+import { useTheme } from '@/hooks/useTheme'
 import type { Candle } from '@/types'
 
 interface RsiChartProps {
   candles: readonly Candle[]
 }
 
-// CSS token values
-const RSI_LINE_COLOR  = '#a78bfa' // --rsi-line
-const BG_SURFACE      = '#131720' // --bg-surface
-const BORDER_COLOR    = '#2a3040' // --border
-const TEXT_SECONDARY  = '#8892a4' // --text-secondary
-const OVERBOUGHT_COLOR = 'rgba(239, 68, 68, 0.35)'  // --loss, semi-transparent
-const OVERSOLD_COLOR   = 'rgba(34, 197, 94, 0.35)'  // --win, semi-transparent
+const RSI_LINE_COLOR   = '#a78bfa'                    // --rsi-line
+const OVERBOUGHT_COLOR = 'rgba(239, 68, 68, 0.35)'   // --loss, semi-transparent
+const OVERSOLD_COLOR   = 'rgba(34, 197, 94, 0.35)'   // --win, semi-transparent
+
+function getChartColors() {
+  const style = getComputedStyle(document.documentElement)
+  return {
+    bg:   style.getPropertyValue('--chart-bg').trim()   || '#131720',
+    grid: style.getPropertyValue('--chart-grid').trim() || '#2a3040',
+    text: style.getPropertyValue('--chart-text').trim() || '#8892a4',
+  }
+}
 
 export function RsiChart({ candles }: RsiChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<IChartApi | null>(null)
   const rsiSeriesRef = useRef<ISeriesApi<'Line', Time> | null>(null)
+
+  const { theme } = useTheme()
 
   // Create the chart and series once on mount
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    const { bg, grid, text } = getChartColors()
+
     const chart = createChart(container, {
       layout: {
-        background: { color: BG_SURFACE },
-        textColor: TEXT_SECONDARY,
+        background: { color: bg },
+        textColor: text,
       },
       grid: {
-        vertLines: { color: BORDER_COLOR },
-        horzLines: { color: BORDER_COLOR },
+        vertLines: { color: grid },
+        horzLines: { color: grid },
       },
       crosshair: {
         vertLine: { color: RSI_LINE_COLOR, labelBackgroundColor: RSI_LINE_COLOR },
         horzLine: { color: RSI_LINE_COLOR, labelBackgroundColor: RSI_LINE_COLOR },
       },
       rightPriceScale: {
-        borderColor: BORDER_COLOR,
+        borderColor: grid,
       },
       timeScale: {
-        borderColor: BORDER_COLOR,
+        borderColor: grid,
         timeVisible: true,
         secondsVisible: false,
       },
       width: container.clientWidth,
       height: container.clientHeight,
     })
+
+    chartRef.current = chart
 
     rsiSeriesRef.current = chart.addSeries(LineSeries, {
       color: RSI_LINE_COLOR,
@@ -62,7 +75,6 @@ export function RsiChart({ candles }: RsiChartProps) {
       lastValueVisible: true,
     })
 
-    // Horizontal reference lines at the overbought and oversold thresholds
     rsiSeriesRef.current.createPriceLine({
       price: RSI_OVERBOUGHT,
       color: OVERBOUGHT_COLOR,
@@ -91,9 +103,28 @@ export function RsiChart({ candles }: RsiChartProps) {
     return () => {
       ro.disconnect()
       chart.remove()
+      chartRef.current = null
       rsiSeriesRef.current = null
     }
   }, [])
+
+  // Re-apply theme colors when theme changes
+  useEffect(() => {
+    if (!chartRef.current) return
+    const { bg, grid, text } = getChartColors()
+    chartRef.current.applyOptions({
+      layout: {
+        background: { color: bg },
+        textColor: text,
+      },
+      grid: {
+        vertLines: { color: grid },
+        horzLines: { color: grid },
+      },
+      rightPriceScale: { borderColor: grid },
+      timeScale: { borderColor: grid },
+    })
+  }, [theme])
 
   // Update RSI data whenever candles change
   useEffect(() => {
