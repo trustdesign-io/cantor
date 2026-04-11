@@ -12,7 +12,7 @@ const TabsList = forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      'flex items-center gap-0 border-b',
+      'flex items-center border-b',
       className
     )}
     style={{ borderColor: 'var(--border)', backgroundColor: 'var(--bg-surface)' }}

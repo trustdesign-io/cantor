@@ -210,7 +210,10 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
     saveLayout(LS_KEY_CHART_COL, layout)
   }, [])
 
-  // Clear saved layouts and reload so defaults take effect.
+  // Clear saved panel layouts and reload so defaults take effect.
+  // LS_KEY_ACTIVE_TAB is intentionally not reset here — tab preference is
+  // not a "layout" concern and the user would be surprised if their chosen
+  // tab reset every time they hit the layout-reset button.
   const handleResetLayout = useCallback(() => {
     try {
       localStorage.removeItem(LS_KEY_OUTER)
@@ -264,7 +267,7 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
         >
           {/* Charts column — left 72%, stacked vertically */}
           <Panel id="charts" defaultSize={72} minSize={40} style={panelFillStyle}>
-            {/* Heartbeat strip — right-aligned above the chart area */}
+            {/* Heartbeat strip — full-width, above the resizable chart panes */}
             <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <StrategyHeartbeat
               baseSignal={snapshot.baseSignal}
@@ -401,16 +404,16 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
                 <TabsTrigger value="flows">ETF Flows</TabsTrigger>
                 <TabsTrigger value="stablecoin">Stablecoin</TabsTrigger>
               </TabsList>
-              <TabsContent value="signals" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <TabsContent value="signals" className="overflow-y-auto">
                 <SignalLog events={events} position={position} balance={balance} />
               </TabsContent>
-              <TabsContent value="commentary" style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              <TabsContent value="commentary">
                 <CommentatorPanel snapshot={snapshot} />
               </TabsContent>
-              <TabsContent value="flows" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <TabsContent value="flows" className="overflow-y-auto">
                 <EtfFlowsPanel flows={etfFlows} pair={pair} />
               </TabsContent>
-              <TabsContent value="stablecoin" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <TabsContent value="stablecoin" className="overflow-y-auto">
                 <StablecoinPanel data={stablecoinData} />
               </TabsContent>
             </Tabs>
