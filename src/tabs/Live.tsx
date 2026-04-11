@@ -3,6 +3,7 @@ import { Group, Panel, Separator, type Layout } from 'react-resizable-panels'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
 import { SignalLog } from '@/components/SignalLog'
+import { StrategyHeartbeat } from '@/components/StrategyHeartbeat'
 import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
 import { StablecoinPanel } from '@/components/StablecoinPanel'
 import { CommentatorPanel } from '@/components/CommentatorPanel'
@@ -149,6 +150,35 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
       fearGreedIndex,
     }
   }, [candles, signal, signalResult, position, fundingRate, fearGreedIndex])
+
+  // Strategy heartbeat: track the wall-clock time of the most recent snapshot
+  // update so the heartbeat strip can show "tick Xs ago". We key the effect
+  // on a cheap identity proxy (candles length + last-candle timestamp) rather
+  // than the snapshot object itself, which would fire far more than needed.
+  const [lastTickAt, setLastTickAt] = useState<number | null>(null)
+  const lastCandleTime = candles.length > 0 ? (candles[candles.length - 1]?.time ?? 0) : 0
+  useEffect(() => {
+    if (candles.length === 0) return
+    setLastTickAt(Date.now())
+  }, [candles.length, lastCandleTime])
+  // Reset on pair/interval change — an old tick timestamp from another
+  // market would make the new one look instantly stale.
+  useEffect(() => {
+    setLastTickAt(null)
+  }, [pair, interval])
+
+  // 1 Hz clock so the "tick Xs ago" label keeps counting between WS ticks.
+  // Using a separate state (rather than Date.now() in render) avoids a render
+  // storm during high-frequency WS updates — the heartbeat reads whichever
+  // value is fresher.
+  const [now, setNow] = useState<number>(() => Date.now())
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  // Interval in ms for the heartbeat's staleness threshold.
+  const intervalMs = interval * 60_000
 
   // Load persisted layouts once on mount. Using useMemo keeps the initial
   // layout stable across re-renders without triggering a state update.
@@ -342,8 +372,27 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
               style={{ width: '100%', height: '100%' }}
             >
               <Panel id="signalLog" defaultSize={35} minSize={15} style={panelFillStyle}>
-                <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
-                  <SignalLog events={events} position={position} balance={balance} />
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                  }}
+                >
+                  <StrategyHeartbeat
+                    baseSignal={snapshot.baseSignal}
+                    emaFast={snapshot.emaFast}
+                    emaSlow={snapshot.emaSlow}
+                    rsi={snapshot.rsi}
+                    lastTickAt={lastTickAt}
+                    now={now}
+                    intervalMs={intervalMs}
+                  />
+                  <div style={{ flex: 1, minHeight: 0 }}>
+                    <SignalLog events={events} position={position} balance={balance} />
+                  </div>
                 </div>
               </Panel>
               <Separator
