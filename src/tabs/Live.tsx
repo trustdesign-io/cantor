@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect, useRef, useMemo } from 'react'
 import { Group, Panel, Separator, type Layout } from 'react-resizable-panels'
 import { PriceChart } from '@/components/PriceChart'
 import { RsiChart } from '@/components/RsiChart'
+import { SentimentChart } from '@/components/SentimentChart'
 import { SignalLog } from '@/components/SignalLog'
 import { StrategyHeartbeat } from '@/components/StrategyHeartbeat'
 import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
@@ -13,6 +14,7 @@ import { NewsLane } from '@/components/NewsLane'
 import { useCryptoPanic } from '@/hooks/useCryptoPanic'
 import { useGdeltNews } from '@/hooks/useGdeltNews'
 import { mergeAndSortEvents } from '@/lib/newsFilters'
+import { useSentimentData } from '@/hooks/useSentimentData'
 import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
 import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
@@ -198,6 +200,9 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
     () => mergeAndSortEvents(cryptoEvents, gdeltEvents),
     [cryptoEvents, gdeltEvents]
   )
+
+  // Sentiment data — F&G history, long/short ratio, divergences.
+  const { fearGreedSeries, longShortSeries, divergences } = useSentimentData(pair, candles)
 
   // Load persisted layouts once on mount. Using useMemo keeps the initial
   // layout stable across re-renders without triggering a state update.
@@ -430,6 +435,18 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
                     loading={newsLoading}
                   />
                 </div>
+              </Panel>
+              <Separator
+                aria-label="Resize news lane and sentiment pane"
+                style={vSeparatorStyle}
+              />
+              {/* Sentiment strip — Fear & Greed + Long/Short ratio */}
+              <Panel id="sentiment" defaultSize={13} minSize={8} style={panelFillStyle}>
+                <SentimentChart
+                  fearGreedSeries={fearGreedSeries}
+                  longShortSeries={longShortSeries}
+                  divergences={divergences}
+                />
               </Panel>
             </Group>
             </div>
