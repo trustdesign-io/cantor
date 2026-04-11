@@ -44,7 +44,8 @@ export async function fetchFearGreedHistory(limit = HISTORY_DAYS): Promise<TimeV
     historyCache = { data, fetchedAt: Date.now() }
     return data
   } catch {
-    historyCache = { data: [], fetchedAt: Date.now() }
+    // Don't cache error responses at full TTL — retry within 5 minutes
+    historyCache = { data: [], fetchedAt: Date.now() - CACHE_TTL_MS + 5 * 60 * 1000 }
     return []
   }
 }

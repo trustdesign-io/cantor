@@ -56,6 +56,8 @@ export function rollingZScore(values: TimeValue[], window = 20): TimeValue[] {
     if (i < window - 1) return { ...tv, value: NaN }
     const slice = values.slice(i - window + 1, i + 1).map(x => x.value)
     const mean = slice.reduce((a, b) => a + b, 0) / window
+    // Population variance (÷N) rather than sample variance (÷N-1) — intentional.
+    // The window represents the full observable population of recent values.
     const variance = slice.reduce((a, b) => a + (b - mean) ** 2, 0) / window
     const std = Math.sqrt(variance)
     return { ...tv, value: std === 0 ? 0 : (tv.value - mean) / std }

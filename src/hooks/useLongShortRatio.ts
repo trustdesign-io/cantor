@@ -22,9 +22,12 @@ interface BinanceLsEntry {
   timestamp: number
 }
 
-/** Map a Cantor pair like 'XBT/USDT' to a Binance futures symbol like 'BTCUSDT'. */
+/**
+ * Map a Cantor pair like 'XBT/USDT' or 'BTC/USDT' to a Binance futures
+ * perpetual symbol like 'BTCUSDT'. Handles the XBT→BTC alias used by Kraken.
+ */
 function pairToSymbol(pair: string): string {
-  return pair.replace('XBT', 'BTC').replace('/', '')
+  return pair.replace(/\//g, '').replace(/^XBT/, 'BTC')
 }
 
 /**

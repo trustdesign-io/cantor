@@ -5,7 +5,7 @@ import {
   LineSeries,
   createSeriesMarkers,
 } from 'lightweight-charts'
-import type { IChartApi, ISeriesApi, Time, SeriesMarker } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, ISeriesMarkersPluginApi, Time, SeriesMarker } from 'lightweight-charts'
 import { useTheme } from '@/hooks/useTheme'
 import type { TimeValue, DivergenceEvent } from '@/lib/sentimentUtils'
 
@@ -77,8 +77,7 @@ export function SentimentChart({ fearGreedSeries, longShortSeries, divergences }
   const chartRef = useRef<IChartApi | null>(null)
   const fgSeriesRef = useRef<ISeriesApi<'Area', Time> | null>(null)
   const lsSeriesRef = useRef<ISeriesApi<'Line', Time> | null>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const markersApiRef = useRef<any>(null)
+  const markersApiRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null)
 
   const { theme } = useTheme()
   const [visibility, setVisibility] = useState<SeriesVisibility>(loadVisibility)
@@ -230,14 +229,14 @@ export function SentimentChart({ fearGreedSeries, longShortSeries, divergences }
         <button
           type="button"
           aria-pressed={visibility.fearGreed}
+          aria-label={`Fear/Greed series ${visibility.fearGreed ? 'visible' : 'hidden'}`}
           onClick={() => toggle('fearGreed')}
-          className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-opacity"
+          className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-all"
           style={{
             border: `1px solid ${GREED_COLOR}`,
             backgroundColor: visibility.fearGreed ? 'rgba(34,197,94,0.15)' : 'transparent',
-            color: 'var(--text-primary)',
+            color: visibility.fearGreed ? 'var(--text-primary)' : 'var(--text-secondary)',
             cursor: 'pointer',
-            opacity: visibility.fearGreed ? 1 : 0.4,
           }}
         >
           <span style={{ width: 8, height: 2, backgroundColor: GREED_COLOR, display: 'inline-block', borderRadius: 1 }} />
@@ -246,14 +245,14 @@ export function SentimentChart({ fearGreedSeries, longShortSeries, divergences }
         <button
           type="button"
           aria-pressed={visibility.longShort}
+          aria-label={`Long/Short ratio series ${visibility.longShort ? 'visible' : 'hidden'}`}
           onClick={() => toggle('longShort')}
-          className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-opacity"
+          className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-all"
           style={{
             border: '1px solid #f59e0b',
             backgroundColor: visibility.longShort ? 'rgba(245,158,11,0.15)' : 'transparent',
-            color: 'var(--text-primary)',
+            color: visibility.longShort ? 'var(--text-primary)' : 'var(--text-secondary)',
             cursor: 'pointer',
-            opacity: visibility.longShort ? 1 : 0.4,
           }}
         >
           <span style={{ width: 8, height: 2, backgroundColor: '#f59e0b', display: 'inline-block', borderRadius: 1 }} />
