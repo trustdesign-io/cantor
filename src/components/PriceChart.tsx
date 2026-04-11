@@ -4,51 +4,63 @@ import {
   CandlestickSeries,
   LineSeries,
 } from 'lightweight-charts'
-import type { ISeriesApi, Time } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, Time } from 'lightweight-charts'
 import { ema } from '@/indicators/ema'
 import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD } from '@/strategy/signals'
+import { useTheme } from '@/hooks/useTheme'
 import type { Candle } from '@/types'
 
 interface PriceChartProps {
   candles: readonly Candle[]
 }
 
-// CSS token values — static constants, resolved at module load
+// Candle and EMA colors are invariant across themes — charts keep a dark canvas
 const EMA_FAST_COLOR = '#22d3ee' // --ema-fast
 const EMA_SLOW_COLOR = '#f59e0b' // --ema-slow
-const BG_SURFACE     = '#131720' // --bg-surface
-const BORDER_COLOR   = '#2a3040' // --border
-const TEXT_SECONDARY = '#8892a4' // --text-secondary
+
+function getChartColors() {
+  const style = getComputedStyle(document.documentElement)
+  return {
+    bg:   style.getPropertyValue('--chart-bg').trim()   || '#131720',
+    grid: style.getPropertyValue('--chart-grid').trim() || '#2a3040',
+    text: style.getPropertyValue('--chart-text').trim() || '#8892a4',
+  }
+}
 
 export function PriceChart({ candles }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  // Keep mutable refs to the series so we can update data without recreating the chart
+  const chartRef = useRef<IChartApi | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick', Time> | null>(null)
   const emaFastSeriesRef = useRef<ISeriesApi<'Line', Time> | null>(null)
   const emaSlowSeriesRef = useRef<ISeriesApi<'Line', Time> | null>(null)
+
+  const { theme } = useTheme()
+
   // Create the chart once on mount
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
+    const { bg, grid, text } = getChartColors()
+
     const chart = createChart(container, {
       layout: {
-        background: { color: BG_SURFACE },
-        textColor: TEXT_SECONDARY,
+        background: { color: bg },
+        textColor: text,
       },
       grid: {
-        vertLines: { color: BORDER_COLOR },
-        horzLines: { color: BORDER_COLOR },
+        vertLines: { color: grid },
+        horzLines: { color: grid },
       },
       crosshair: {
         vertLine: { color: EMA_FAST_COLOR, labelBackgroundColor: EMA_FAST_COLOR },
         horzLine: { color: EMA_FAST_COLOR, labelBackgroundColor: EMA_FAST_COLOR },
       },
       rightPriceScale: {
-        borderColor: BORDER_COLOR,
+        borderColor: grid,
       },
       timeScale: {
-        borderColor: BORDER_COLOR,
+        borderColor: grid,
         timeVisible: true,
         secondsVisible: false,
       },
@@ -56,9 +68,11 @@ export function PriceChart({ candles }: PriceChartProps) {
       height: container.clientHeight,
     })
 
+    chartRef.current = chart
+
     candleSeriesRef.current = chart.addSeries(CandlestickSeries, {
-      upColor: '#22c55e',      // --win
-      downColor: '#ef4444',    // --loss
+      upColor: '#22c55e',
+      downColor: '#ef4444',
       borderVisible: false,
       wickUpColor: '#22c55e',
       wickDownColor: '#ef4444',
@@ -78,7 +92,6 @@ export function PriceChart({ candles }: PriceChartProps) {
       lastValueVisible: false,
     })
 
-    // Resize observer keeps the chart filling its container on layout changes
     const ro = new ResizeObserver(entries => {
       for (const entry of entries) {
         chart.resize(entry.contentRect.width, entry.contentRect.height)
@@ -89,13 +102,32 @@ export function PriceChart({ candles }: PriceChartProps) {
     return () => {
       ro.disconnect()
       chart.remove()
+      chartRef.current = null
       candleSeriesRef.current = null
       emaFastSeriesRef.current = null
       emaSlowSeriesRef.current = null
     }
   }, [])
 
-  // Update data whenever candles change — no chart recreation, only setData calls
+  // Re-apply theme colors when theme changes
+  useEffect(() => {
+    if (!chartRef.current) return
+    const { bg, grid, text } = getChartColors()
+    chartRef.current.applyOptions({
+      layout: {
+        background: { color: bg },
+        textColor: text,
+      },
+      grid: {
+        vertLines: { color: grid },
+        horzLines: { color: grid },
+      },
+      rightPriceScale: { borderColor: grid },
+      timeScale: { borderColor: grid },
+    })
+  }, [theme])
+
+  // Update data whenever candles change
   useEffect(() => {
     if (
       !candleSeriesRef.current ||

@@ -3,6 +3,10 @@ import { describe, it, expect, vi } from 'vitest'
 import { Header } from '@/components/Header'
 import type { OhlcInterval } from '@/types'
 
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({ theme: 'dark', toggleTheme: vi.fn(), setTheme: vi.fn() }),
+}))
+
 function renderHeader(overrides: {
   interval?: OhlcInterval
   onIntervalChange?: (i: OhlcInterval) => void
