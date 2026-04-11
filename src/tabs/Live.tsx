@@ -8,6 +8,7 @@ import { EtfFlowsPanel } from '@/components/EtfFlowsPanel'
 import { StablecoinPanel } from '@/components/StablecoinPanel'
 import { CommentatorPanel } from '@/components/CommentatorPanel'
 import { TeachMeButton } from '@/components/TeachMeButton'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { ema } from '@/indicators/ema'
 import { rsi } from '@/indicators/rsi'
 import { EMA_FAST_PERIOD, EMA_SLOW_PERIOD, RSI_PERIOD } from '@/strategy/signals'
@@ -44,7 +45,7 @@ interface LiveTabProps {
  */
 const LS_KEY_OUTER = 'cantor.live.layout.outer'
 const LS_KEY_CHART_COL = 'cantor.live.layout.chartCol'
-const LS_KEY_SIDEBAR = 'cantor.live.layout.sidebar'
+const LS_KEY_ACTIVE_TAB = 'cantor.activeTab'
 
 /** Safe read + JSON parse for a layout from localStorage. */
 function loadLayout(key: string): Layout | undefined {
@@ -184,7 +185,23 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
   // layout stable across re-renders without triggering a state update.
   const initialOuter = useMemo(() => loadLayout(LS_KEY_OUTER), [])
   const initialChartCol = useMemo(() => loadLayout(LS_KEY_CHART_COL), [])
-  const initialSidebar = useMemo(() => loadLayout(LS_KEY_SIDEBAR), [])
+
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    try {
+      return localStorage.getItem(LS_KEY_ACTIVE_TAB) ?? 'signals'
+    } catch {
+      return 'signals'
+    }
+  })
+
+  const handleTabChange = useCallback((value: string) => {
+    setActiveTab(value)
+    try {
+      localStorage.setItem(LS_KEY_ACTIVE_TAB, value)
+    } catch {
+      // ignore
+    }
+  }, [])
 
   const onOuterLayoutChanged = useCallback((layout: Layout) => {
     saveLayout(LS_KEY_OUTER, layout)
@@ -192,16 +209,15 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
   const onChartColLayoutChanged = useCallback((layout: Layout) => {
     saveLayout(LS_KEY_CHART_COL, layout)
   }, [])
-  const onSidebarLayoutChanged = useCallback((layout: Layout) => {
-    saveLayout(LS_KEY_SIDEBAR, layout)
-  }, [])
 
-  // Clear saved layouts and reload so defaults take effect.
+  // Clear saved panel layouts and reload so defaults take effect.
+  // LS_KEY_ACTIVE_TAB is intentionally not reset here — tab preference is
+  // not a "layout" concern and the user would be surprised if their chosen
+  // tab reset every time they hit the layout-reset button.
   const handleResetLayout = useCallback(() => {
     try {
       localStorage.removeItem(LS_KEY_OUTER)
       localStorage.removeItem(LS_KEY_CHART_COL)
-      localStorage.removeItem(LS_KEY_SIDEBAR)
     } catch {
       // localStorage may throw in private mode — ignore, the reload will
       // still work with the in-memory defaults
@@ -224,7 +240,6 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
 
   // Shared Panel style — Panel applies style to its inner wrapper div.
   const panelFillStyle = { width: '100%', height: '100%' } as const
-  const panelScrollStyle = { width: '100%', height: '100%', overflowY: 'auto' } as const
 
   return (
     <div className="flex flex-col" style={{ height: 'calc(100vh - 88px)' }}>
@@ -250,8 +265,20 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
           onLayoutChanged={onOuterLayoutChanged}
           style={{ width: '100%', height: '100%' }}
         >
-          {/* Charts column — left 2/3, stacked vertically */}
-          <Panel id="charts" defaultSize={67} minSize={40} style={panelFillStyle}>
+          {/* Charts column — left 72%, stacked vertically */}
+          <Panel id="charts" defaultSize={72} minSize={40} style={panelFillStyle}>
+            {/* Heartbeat strip — full-width, above the resizable chart panes */}
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <StrategyHeartbeat
+              baseSignal={snapshot.baseSignal}
+              emaFast={snapshot.emaFast}
+              emaSlow={snapshot.emaSlow}
+              rsi={snapshot.rsi}
+              lastTickAt={lastTickAt}
+              now={now}
+              intervalMs={intervalMs}
+            />
+            <div style={{ flex: 1, minHeight: 0 }}>
             <Group
               orientation="vertical"
               id="cantor.live.chartCol"
@@ -357,68 +384,39 @@ export function LiveTab({ pair, interval, candles, signal, signalResult, positio
                 </div>
               </Panel>
             </Group>
+            </div>
+            </div>
           </Panel>
           <Separator
             aria-label="Resize chart and sidebar panes"
             style={hSeparatorStyle}
           />
-          {/* Sidebar — right 1/3, stacked vertically */}
-          <Panel id="sidebar" defaultSize={33} minSize={20} style={panelFillStyle}>
-            <Group
-              orientation="vertical"
-              id="cantor.live.sidebar"
-              defaultLayout={initialSidebar}
-              onLayoutChanged={onSidebarLayoutChanged}
-              style={{ width: '100%', height: '100%' }}
+          {/* Sidebar — right 28%, tab-based */}
+          <Panel id="sidebar" defaultSize={28} minSize={20} style={panelFillStyle}>
+            <Tabs
+              value={activeTab}
+              onValueChange={handleTabChange}
+              style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}
             >
-              <Panel id="signalLog" defaultSize={35} minSize={15} style={panelFillStyle}>
-                <div
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                  }}
-                >
-                  <StrategyHeartbeat
-                    baseSignal={snapshot.baseSignal}
-                    emaFast={snapshot.emaFast}
-                    emaSlow={snapshot.emaSlow}
-                    rsi={snapshot.rsi}
-                    lastTickAt={lastTickAt}
-                    now={now}
-                    intervalMs={intervalMs}
-                  />
-                  <div style={{ flex: 1, minHeight: 0 }}>
-                    <SignalLog events={events} position={position} balance={balance} />
-                  </div>
-                </div>
-              </Panel>
-              <Separator
-                aria-label="Resize signal log and commentary"
-                style={vSeparatorStyle}
-              />
-              <Panel id="commentary" defaultSize={25} minSize={15} style={panelFillStyle}>
-                <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
-                  <CommentatorPanel snapshot={snapshot} />
-                </div>
-              </Panel>
-              <Separator
-                aria-label="Resize commentary and ETF flows"
-                style={vSeparatorStyle}
-              />
-              <Panel id="etfFlows" defaultSize={20} minSize={10} style={panelScrollStyle}>
+              <TabsList>
+                <TabsTrigger value="signals">Signals</TabsTrigger>
+                <TabsTrigger value="commentary">Commentary</TabsTrigger>
+                <TabsTrigger value="flows">ETF Flows</TabsTrigger>
+                <TabsTrigger value="stablecoin">Stablecoin</TabsTrigger>
+              </TabsList>
+              <TabsContent value="signals" className="overflow-y-auto">
+                <SignalLog events={events} position={position} balance={balance} />
+              </TabsContent>
+              <TabsContent value="commentary">
+                <CommentatorPanel snapshot={snapshot} />
+              </TabsContent>
+              <TabsContent value="flows" className="overflow-y-auto">
                 <EtfFlowsPanel flows={etfFlows} pair={pair} />
-              </Panel>
-              <Separator
-                aria-label="Resize ETF flows and stablecoin supply"
-                style={vSeparatorStyle}
-              />
-              <Panel id="stablecoin" defaultSize={20} minSize={10} style={panelScrollStyle}>
+              </TabsContent>
+              <TabsContent value="stablecoin" className="overflow-y-auto">
                 <StablecoinPanel data={stablecoinData} />
-              </Panel>
-            </Group>
+              </TabsContent>
+            </Tabs>
           </Panel>
         </Group>
       </div>
