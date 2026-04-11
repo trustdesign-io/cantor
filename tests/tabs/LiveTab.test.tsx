@@ -6,12 +6,20 @@ import { LiveTab } from '@/tabs/Live'
 // Chart components use lightweight-charts (canvas). Stub so the tab can render
 // in jsdom without infrastructure.
 
+vi.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({ theme: 'dark', toggleTheme: vi.fn(), setTheme: vi.fn() }),
+}))
+
 vi.mock('@/components/PriceChart', () => ({
   PriceChart: () => <div role="img" aria-label="price chart stub" />,
 }))
 
 vi.mock('@/components/RsiChart', () => ({
   RsiChart: () => <div role="img" aria-label="rsi chart stub" />,
+}))
+
+vi.mock('@/components/SentimentChart', () => ({
+  SentimentChart: () => <div role="img" aria-label="sentiment chart stub" />,
 }))
 
 // ── Default props ──────────────────────────────────────────────────────────────
